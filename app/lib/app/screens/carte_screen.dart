@@ -9,6 +9,7 @@ import 'package:create_good_app/app/services/notification_service.dart';
 import 'package:create_good_app/app/services/auth_service.dart';
 import 'package:create_good_app/app/widgets/primary_button.dart';
 import 'package:create_good_app/app/widgets/custom_form_field.dart';
+import 'package:create_good_app/app/core/db.dart';
 import 'package:create_good_app/app/screens/chat_screen.dart';
 import 'package:create_good_app/app/screens/create_event_screen.dart';
 import 'package:create_good_app/app/screens/launch_screen.dart';
@@ -43,6 +44,18 @@ class _CarteScreenState extends State<CarteScreen> {
     _loadEvents();
   }
 
+  void _showEventDetails(Event event) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _EventDetailsSheet(
+        event: event,
+        onParticipationChanged: _loadEvents,
+      ),
+    );
+  }
+
   Future<void> _loadEvents() async {
     final events = await EventService.fetchEvents();
     if (mounted) {
@@ -55,11 +68,12 @@ class _CarteScreenState extends State<CarteScreen> {
 
   static const List<Map<String, String>> _categories = [
     {'emoji': '✨', 'label': 'Tous'},
-    {'emoji': '🌙', 'label': 'Soirées'},
+    {'emoji': '🌙', 'label': 'Soirée'},
     {'emoji': '🏃', 'label': 'Sport'},
     {'emoji': '🎨', 'label': 'Culture'},
     {'emoji': '🍽️', 'label': 'Resto'},
     {'emoji': '🌳', 'label': 'Nature'},
+    {'emoji': '🎮', 'label': 'Gaming'},
   ];
 
   static const _categoryColors = [
@@ -69,6 +83,7 @@ class _CarteScreenState extends State<CarteScreen> {
     LinearGradient(colors: [Color(0xFF440EAB), Color(0xFF6844AC)], begin: Alignment.topLeft, end: Alignment.bottomRight),
     LinearGradient(colors: [Color(0xFFFF6F3B), Color(0xFFE8541C)], begin: Alignment.topLeft, end: Alignment.bottomRight),
     LinearGradient(colors: [Color(0xFF266603), Color(0xFF3E8914)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+    LinearGradient(colors: [Color(0xFF3A86FF), Color(0xFF003049)], begin: Alignment.topLeft, end: Alignment.bottomRight),
   ];
 
   @override
@@ -111,7 +126,15 @@ class _CarteScreenState extends State<CarteScreen> {
             right: 0,
             child: _loading 
                 ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                : _MapView(mapController: _mapController, events: _events),
+                : _MapView(
+                    mapController: _mapController, 
+                    onEventTap: _showEventDetails,
+                    events: _events.where((e) {
+                      final selected = _categories[_selectedCategoryIndex]['label'];
+                      if (selected == 'Tous') return true;
+                      return e.category == selected;
+                    }).toList(),
+                  ),
           ),
           // FAB
           Positioned(
@@ -416,8 +439,9 @@ class _CategoryFilter extends StatelessWidget {
 class _MapView extends StatelessWidget {
   final MapController mapController;
   final List<Event> events;
+  final void Function(Event) onEventTap;
 
-  const _MapView({required this.mapController, required this.events});
+  const _MapView({required this.mapController, required this.events, required this.onEventTap});
 
   @override
   Widget build(BuildContext context) {
@@ -440,15 +464,19 @@ class _MapView extends StatelessWidget {
             if (e.category == 'Culture') catColor = const Color(0xFF440EAB);
             if (e.category == 'Resto') catColor = const Color(0xFFE8541C);
             if (e.category == 'Nature') catColor = const Color(0xFF3E8914);
+            if (e.category == 'Gaming') catColor = const Color(0xFF3A86FF);
             
             return Marker(
               point: LatLng(e.lat, e.lng),
               width: 48,
               height: 48,
-              child: _MapMarker(
-                emoji: e.emoji,
-                color: catColor,
-                round: true,
+              child: GestureDetector(
+                onTap: () => onEventTap(e),
+                child: _MapMarker(
+                  emoji: e.emoji,
+                  color: catColor,
+                  round: true,
+                ),
               ),
             );
           }).toList(),
@@ -547,6 +575,96 @@ class _MapMarker extends StatelessWidget {
         child: Text(
           emoji,
           style: const TextStyle(fontSize: 24),
+        ),
+      ),
+    );
+  }
+}
+
+class _EventDetailsSheet extends StatefulWidget {
+  final Event event;
+  final VoidCallback onParticipationChanged;
+
+  const _EventDetailsSheet({required this.event, required this.onParticipationChanged});
+
+  @override
+  State<_EventDetailsSheet> createState() => _EventDetailsSheetState();
+}
+
+class _EventDetailsSheetState extends State<_EventDetailsSheet> {
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final curUserId = pb.authStore.record?.id;
+    final isParticipating = widget.event.participants.contains(curUserId);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(AppRadius.xl), topRight: Radius.circular(AppRadius.xl)),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)))),
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              children: [
+                Container(
+                  width: 64, height: 64,
+                  decoration: BoxDecoration(color: AppColors.lightOrangeBg, borderRadius: BorderRadius.circular(AppRadius.lg)),
+                  child: Center(child: Text(widget.event.emoji, style: const TextStyle(fontSize: 32))),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.event.title, style: AppTextStyles.heading2, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 4),
+                      Text(widget.event.category, style: AppTextStyles.bodySmall.copyWith(color: AppColors.primary)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              children: [
+                const Icon(Icons.access_time_outlined, color: AppColors.textSecondary, size: 20),
+                const SizedBox(width: AppSpacing.sm),
+                Text('${widget.event.date.day.toString().padLeft(2,'0')}/${widget.event.date.month.toString().padLeft(2,'0')}/${widget.event.date.year} à ${widget.event.date.hour.toString().padLeft(2,'0')}h${widget.event.date.minute.toString().padLeft(2, '0')}', style: AppTextStyles.body),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                const Icon(Icons.group_outlined, color: AppColors.textSecondary, size: 20),
+                const SizedBox(width: AppSpacing.sm),
+                Text('${widget.event.participants.length} Participant(s)', style: AppTextStyles.body),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            PrimaryButton(
+              label: isParticipating ? 'Me désinscrire' : 'M\'inscrire',
+              loading: _isLoading,
+              onTap: () async {
+                setState(() => _isLoading = true);
+                try {
+                  await EventService.toggleEventParticipation(widget.event);
+                  widget.onParticipationChanged();
+                  if (mounted) Navigator.pop(context);
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+                  if (mounted) setState(() => _isLoading = false);
+                }
+              },
+            ),
+          ],
         ),
       ),
     );

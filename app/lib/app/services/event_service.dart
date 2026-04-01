@@ -31,4 +31,29 @@ class EventService {
       rethrow;
     }
   }
+
+  static Future<bool> toggleEventParticipation(Event event) async {
+    final userId = pb.authStore.record?.id;
+    if (userId == null) throw Exception("Utilisateur non connecté");
+
+    final participants = List<String>.from(event.participants);
+    bool isJoining = false;
+
+    if (participants.contains(userId)) {
+      participants.remove(userId);
+    } else {
+      participants.add(userId);
+      isJoining = true;
+    }
+
+    try {
+      await pb.collection('events').update(event.id, body: {
+        'participants': participants,
+      });
+      return isJoining;
+    } catch (e) {
+      print('Erreur mise à jour participation: $e');
+      rethrow;
+    }
+  }
 }

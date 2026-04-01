@@ -9,7 +9,6 @@ import 'package:create_good_app/app/services/notification_service.dart';
 import 'package:create_good_app/app/services/auth_service.dart';
 import 'package:create_good_app/app/widgets/primary_button.dart';
 import 'package:create_good_app/app/widgets/custom_form_field.dart';
-import 'package:create_good_app/app/screens/carte_screen.dart';
 import 'package:create_good_app/app/screens/chat_screen.dart';
 import 'package:create_good_app/app/screens/create_event_screen.dart';
 import 'package:create_good_app/app/screens/launch_screen.dart';
@@ -19,7 +18,6 @@ import 'package:create_good_app/app/screens/message_list_screen.dart';
 import 'package:create_good_app/app/screens/parametres_screen.dart';
 import 'package:create_good_app/app/screens/profil_screen.dart';
 import 'package:create_good_app/app/screens/register_screen.dart';
-import 'dart:math' as math;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -34,6 +32,8 @@ class CarteScreen extends StatefulWidget {
 
 class _CarteScreenState extends State<CarteScreen> {
   int _selectedCategoryIndex = 0;
+  String _currentCity = 'Paris';
+  final MapController _mapController = MapController();
 
   static const List<Map<String, String>> _categories = [
     {'emoji': '✨', 'label': 'Tous'},
@@ -42,17 +42,6 @@ class _CarteScreenState extends State<CarteScreen> {
     {'emoji': '🎨', 'label': 'Culture'},
     {'emoji': '🍽️', 'label': 'Resto'},
     {'emoji': '🌳', 'label': 'Nature'},
-  ];
-
-  static const List<Map<String, dynamic>> _markers = [
-    {'lat': 48.8566, 'lng': 2.3522, 'count': 15, 'color': Color(0xFFFF6B35), 'round': true},
-    {'lat': 48.8606, 'lng': 2.3322, 'count': 10, 'color': Color(0xFF3E8914), 'round': true},
-    {'lat': 48.8466, 'lng': 2.3422, 'count': 12, 'color': Color(0xFF7A1E2A), 'round': false},
-    {'lat': 48.8266, 'lng': 2.3622, 'count': 4, 'color': Color(0xFFFFA07A), 'round': false},
-    {'lat': 48.8766, 'lng': 2.3622, 'count': 5, 'color': Color(0xFFFF6B35), 'round': true},
-    {'lat': 48.8866, 'lng': 2.3222, 'count': 8, 'color': Color(0xFF3E8914), 'round': true},
-    {'lat': 48.8516, 'lng': 2.3722, 'count': 20, 'color': Color(0xFF6844AC), 'round': true},
-    {'lat': 48.8616, 'lng': 2.3822, 'count': 7, 'color': Color(0xFF7A1E2A), 'round': false},
   ];
 
   static const _categoryColors = [
@@ -66,7 +55,6 @@ class _CarteScreenState extends State<CarteScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
     return Scaffold(
       body: Stack(
         children: [
@@ -75,7 +63,15 @@ class _CarteScreenState extends State<CarteScreen> {
             top: 0,
             left: 0,
             right: 0,
-            child: _TopBar(),
+            child: _TopBar(
+              currentCity: _currentCity,
+              onCityChanged: (city) {
+                setState(() => _currentCity = city);
+                if (city == 'Paris') _mapController.move(const LatLng(48.8566, 2.3522), 13.0);
+                if (city == 'Lyon') _mapController.move(const LatLng(45.7640, 4.8357), 13.0);
+                if (city == 'Marseille') _mapController.move(const LatLng(43.2965, 5.3698), 13.0);
+              },
+            ),
           ),
           // Category filter
           Positioned(
@@ -95,14 +91,7 @@ class _CarteScreenState extends State<CarteScreen> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: _MapView(markers: _markers),
-          ),
-          // "Étudiants ici" badge
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 64 + 136 + 16,
-            left: 0,
-            right: 0,
-            child: Center(child: _EtudiantsBadge()),
+            child: _MapView(mapController: _mapController),
           ),
           // FAB
           Positioned(
@@ -135,6 +124,11 @@ class _CarteScreenState extends State<CarteScreen> {
 }
 
 class _TopBar extends StatelessWidget {
+  final String currentCity;
+  final ValueChanged<String> onCityChanged;
+
+  const _TopBar({required this.currentCity, required this.onCityChanged});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -163,7 +157,7 @@ class _TopBar extends StatelessWidget {
                     children: [
                       const Icon(Icons.location_on, color: AppColors.orange, size: 20),
                       const SizedBox(width: 4),
-                      Text('Paris', style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                      Text(currentCity, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.textDark)),
                       const SizedBox(width: 4),
                       Text('▼', style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
                     ],
@@ -237,17 +231,26 @@ class _TopBar extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.location_city, color: AppColors.primary),
               title: const Text('Paris'),
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                onCityChanged('Paris');
+                Navigator.pop(context);
+              },
             ),
             ListTile(
               leading: const Icon(Icons.location_city, color: Colors.grey),
               title: const Text('Lyon'),
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                onCityChanged('Lyon');
+                Navigator.pop(context);
+              },
             ),
             ListTile(
               leading: const Icon(Icons.location_city, color: Colors.grey),
               title: const Text('Marseille'),
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                onCityChanged('Marseille');
+                Navigator.pop(context);
+              },
             ),
           ],
         ),
@@ -388,13 +391,14 @@ class _CategoryFilter extends StatelessWidget {
 }
 
 class _MapView extends StatelessWidget {
-  final List<Map<String, dynamic>> markers;
+  final MapController mapController;
 
-  const _MapView({required this.markers});
+  const _MapView({required this.mapController});
 
   @override
   Widget build(BuildContext context) {
     return FlutterMap(
+      mapController: mapController,
       options: MapOptions(
         initialCenter: const LatLng(48.8566, 2.3522), // Paris
         initialZoom: 13.0,
@@ -405,18 +409,7 @@ class _MapView extends StatelessWidget {
           userAgentPackageName: 'com.create_good_app',
         ),
         MarkerLayer(
-          markers: markers.map((m) {
-            return Marker(
-              point: LatLng(m['lat'] as double, m['lng'] as double),
-              width: 48,
-              height: 48,
-              child: _MapMarker(
-                count: m['count'] as int,
-                color: m['color'] as Color,
-                round: m['round'] as bool,
-              ),
-            );
-          }).toList(),
+          markers: [], // No markers initially
         ),
         // Map attribution
         Positioned(
@@ -432,7 +425,7 @@ class _MapView extends StatelessWidget {
         Positioned(
           top: 10,
           left: 10,
-          child: _ZoomControls(),
+          child: _ZoomControls(mapController: mapController),
         ),
       ],
     );
@@ -440,6 +433,10 @@ class _MapView extends StatelessWidget {
 }
 
 class _ZoomControls extends StatelessWidget {
+  final MapController mapController;
+  
+  const _ZoomControls({required this.mapController});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -452,9 +449,15 @@ class _ZoomControls extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _ZoomBtn(label: '+'),
+          GestureDetector(
+            onTap: () => mapController.move(mapController.camera.center, mapController.camera.zoom + 1),
+            child: const _ZoomBtn(label: '+'),
+          ),
           Container(height: 1, color: Colors.grey.shade300),
-          _ZoomBtn(label: '−'),
+          GestureDetector(
+            onTap: () => mapController.move(mapController.camera.center, mapController.camera.zoom - 1),
+            child: const _ZoomBtn(label: '−'),
+          ),
         ],
       ),
     );
@@ -476,69 +479,3 @@ class _ZoomBtn extends StatelessWidget {
     );
   }
 }
-
-class _MapMarker extends StatelessWidget {
-  final int count;
-  final Color color;
-  final bool round;
-
-  const _MapMarker({required this.count, required this.color, required this.round});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: color,
-        shape: round ? BoxShape.circle : BoxShape.rectangle,
-        borderRadius: round ? null : BorderRadius.circular(4),
-        border: Border.all(color: Colors.white, width: 2.4),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Center(
-        child: Text(
-          count.toString(),
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            fontFamily: 'Poppins',
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EtudiantsBadge extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 40,
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(AppRadius.full),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 6)),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadius.full)),
-            child: Text('100+', style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
-          ),
-          const SizedBox(width: 8),
-          Text('Étudiants ici', style: AppTextStyles.button.copyWith(fontSize: 16)),
-        ],
-      ),
-    );
-  }
-}
-

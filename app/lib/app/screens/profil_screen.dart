@@ -338,9 +338,9 @@ class _EventTile extends StatelessWidget {
                   children: [
                     const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textSecondary),
                     const SizedBox(width: 4),
-                    Text(event.date, style: AppTextStyles.caption),
+                    Text('${event.date.day.toString().padLeft(2, "0")}/${event.date.month.toString().padLeft(2, "0")}/${event.date.year}', style: AppTextStyles.caption),
                     const SizedBox(width: 8),
-                    Text(event.time, style: AppTextStyles.caption),
+                    Text('${event.date.hour.toString().padLeft(2, "0")}:${event.date.minute.toString().padLeft(2, "0")}', style: AppTextStyles.caption),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -348,7 +348,7 @@ class _EventTile extends StatelessWidget {
                   children: [
                     const Icon(Icons.group_outlined, size: 14, color: AppColors.textSecondary),
                     const SizedBox(width: 4),
-                    Text('${event.participants} participants', style: AppTextStyles.caption),
+                    Text('${event.participants.length} participants', style: AppTextStyles.caption),
                   ],
                 ),
               ],

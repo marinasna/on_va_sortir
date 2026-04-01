@@ -34,6 +34,24 @@ class _CarteScreenState extends State<CarteScreen> {
   int _selectedCategoryIndex = 0;
   String _currentCity = 'Paris';
   final MapController _mapController = MapController();
+  List<Event> _events = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    final events = await EventService.fetchEvents();
+    if (mounted) {
+      setState(() {
+        _events = events;
+        _loading = false;
+      });
+    }
+  }
 
   static const List<Map<String, String>> _categories = [
     {'emoji': '✨', 'label': 'Tous'},
@@ -91,14 +109,19 @@ class _CarteScreenState extends State<CarteScreen> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: _MapView(mapController: _mapController),
+            child: _loading 
+                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                : _MapView(mapController: _mapController, events: _events),
           ),
           // FAB
           Positioned(
             bottom: 24,
             right: 16,
             child: GestureDetector(
-              onTap: () => Navigator.pushNamed(context, '/create-event'),
+              onTap: () async {
+                await Navigator.pushNamed(context, '/create-event');
+                _loadEvents();
+              },
               child: Container(
                 width: 64,
                 height: 64,
@@ -392,8 +415,9 @@ class _CategoryFilter extends StatelessWidget {
 
 class _MapView extends StatelessWidget {
   final MapController mapController;
+  final List<Event> events;
 
-  const _MapView({required this.mapController});
+  const _MapView({required this.mapController, required this.events});
 
   @override
   Widget build(BuildContext context) {
@@ -409,7 +433,25 @@ class _MapView extends StatelessWidget {
           userAgentPackageName: 'com.create_good_app',
         ),
         MarkerLayer(
-          markers: [], // No markers initially
+          markers: events.where((e) => e.lat != 0.0 && e.lng != 0.0).map((e) {
+            Color catColor = AppColors.primary;
+            if (e.category == 'Sport') catColor = const Color(0xFF3E8914);
+            if (e.category == 'Soirée') catColor = const Color(0xFFFF6B35);
+            if (e.category == 'Culture') catColor = const Color(0xFF440EAB);
+            if (e.category == 'Resto') catColor = const Color(0xFFE8541C);
+            if (e.category == 'Nature') catColor = const Color(0xFF3E8914);
+            
+            return Marker(
+              point: LatLng(e.lat, e.lng),
+              width: 48,
+              height: 48,
+              child: _MapMarker(
+                emoji: e.emoji,
+                color: catColor,
+                round: true,
+              ),
+            );
+          }).toList(),
         ),
         // Map attribution
         Positioned(
@@ -475,6 +517,37 @@ class _ZoomBtn extends StatelessWidget {
       height: 30,
       child: Center(
         child: Text(label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.black87)),
+      ),
+    );
+  }
+}
+
+class _MapMarker extends StatelessWidget {
+  final String emoji;
+  final Color color;
+  final bool round;
+
+  const _MapMarker({required this.emoji, required this.color, required this.round});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: color,
+        shape: round ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: round ? null : BorderRadius.circular(4),
+        border: Border.all(color: Colors.white, width: 2.4),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          emoji,
+          style: const TextStyle(fontSize: 24),
+        ),
       ),
     );
   }

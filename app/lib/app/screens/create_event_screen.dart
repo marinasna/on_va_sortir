@@ -1,27 +1,13 @@
+import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:create_good_app/app/core/theme.dart';
-import 'package:create_good_app/app/models/event.dart';
-import 'package:create_good_app/app/models/message.dart';
-import 'package:create_good_app/app/models/notification.dart';
 import 'package:create_good_app/app/services/event_service.dart';
-import 'package:create_good_app/app/services/message_service.dart';
-import 'package:create_good_app/app/services/notification_service.dart';
-import 'package:create_good_app/app/services/auth_service.dart';
 import 'package:create_good_app/app/widgets/primary_button.dart';
 import 'package:create_good_app/app/widgets/custom_form_field.dart';
-import 'package:create_good_app/app/screens/carte_screen.dart';
-import 'package:create_good_app/app/screens/chat_screen.dart';
-import 'package:create_good_app/app/screens/create_event_screen.dart';
-import 'package:create_good_app/app/screens/launch_screen.dart';
-import 'package:create_good_app/app/screens/login_screen.dart';
-import 'package:create_good_app/app/screens/main_screen.dart';
-import 'package:create_good_app/app/screens/message_list_screen.dart';
-import 'package:create_good_app/app/screens/parametres_screen.dart';
-import 'package:create_good_app/app/screens/profil_screen.dart';
-import 'package:create_good_app/app/screens/register_screen.dart';
-import 'dart:math' as math;
+import 'package:create_good_app/app/core/db.dart';
 
-// ─────────────────────────────────────────────
 // CREATE EVENT SCREEN
 // ─────────────────────────────────────────────
 class CreateEventScreen extends StatefulWidget {
@@ -35,11 +21,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   String _selectedEmoji = '🎉';
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final _locationCtrl = TextEditingController();
   final _maxParticipantsCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
   int _selectedCategory = -1;
   bool _loading = false;
+
+  DateTime? _date;
+  TimeOfDay? _time;
+  
+  String _finalLocationName = '';
+  double _finalLat = 0.0;
+  double _finalLng = 0.0;
 
   static const List<String> _emojiList = ['🎉', '🎮', '🏃', '⚽', '🎨', '🎭', '🎸', '🍕', '🍔', '☕', '🌳', '🏖️', '📚', '💪', '🎬', '🎵'];
 
@@ -48,23 +40,50 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     {'emoji': '🏃', 'label': 'Sport'},
     {'emoji': '🎨', 'label': 'Culture'},
     {'emoji': '🍽️', 'label': 'Resto'},
-    {'emoji': '🌳', 'label': 'Extérieur'},
-    {'emoji': '🎮', 'label': 'Jeux'},
+    {'emoji': '🌳', 'label': 'Nature'},
+    {'emoji': '🎮', 'label': 'Gaming'},
   ];
 
   Future<void> _submit() async {
+    if (_nameCtrl.text.isEmpty || _finalLat == 0.0 || _finalLng == 0.0 || _date == null || _time == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez remplir tous les champs et sélectionner une adresse valide !')));
+      return;
+    }
+
     setState(() => _loading = true);
-    await EventService.createEvent({
-      'emoji': _selectedEmoji,
-      'name': _nameCtrl.text,
-      'category': _selectedCategory >= 0 ? _eventTypes[_selectedCategory]['label'] : '',
-      'description': _descCtrl.text,
-      'location': _locationCtrl.text,
-      'maxParticipants': _maxParticipantsCtrl.text,
-      'price': _priceCtrl.text,
-    });
-    if (mounted) Navigator.pop(context);
-    setState(() => _loading = false);
+
+    // Combining Date and Time
+    final finalDateTime = DateTime(
+      _date!.year,
+      _date!.month,
+      _date!.day,
+      _time!.hour,
+      _time!.minute,
+    ).toUtc().toIso8601String();
+
+    try {
+      final category = _selectedCategory >= 0 ? _eventTypes[_selectedCategory]['label'] : 'Général';
+      
+      await EventService.createEvent({
+        'emoji': _selectedEmoji,
+        'title': _nameCtrl.text,
+        'category': category,
+        'date': finalDateTime,
+        // The creator is implicitly participating.
+        'participants': [pb.authStore.record?.id].where((id) => id != null).toList(),
+        'lat': _finalLat,
+        'lng': _finalLng,
+      });
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Erreur création: $e'),
+        duration: const Duration(seconds: 5),
+      ));
+    }
+
+    if (mounted) setState(() => _loading = false);
   }
 
   @override
@@ -110,7 +129,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: _selectedEmoji == e ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+                          color: _selectedEmoji == e ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
                           borderRadius: BorderRadius.circular(AppRadius.sm),
                           border: _selectedEmoji == e ? Border.all(color: AppColors.primary) : null,
                         ),
@@ -144,7 +163,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   onTap: () => setState(() => _selectedCategory = i),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: sel ? AppColors.primary.withOpacity(0.1) : AppColors.inputBg,
+                      color: sel ? AppColors.primary.withValues(alpha: 0.1) : AppColors.inputBg,
                       borderRadius: BorderRadius.circular(AppRadius.md),
                       border: Border.all(color: sel ? AppColors.primary : AppColors.border),
                     ),
@@ -183,13 +202,30 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             const SizedBox(height: AppSpacing.md),
             Row(
               children: [
-                Expanded(child: _DatePickerField()),
+                Expanded(
+                  child: _DatePickerField(
+                    date: _date,
+                    onChanged: (d) => setState(() => _date = d),
+                  ),
+                ),
                 const SizedBox(width: AppSpacing.md),
-                Expanded(child: _TimePickerField()),
+                Expanded(
+                  child: _TimePickerField(
+                    time: _time,
+                    onChanged: (t) => setState(() => _time = t),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            CustomFormField(label: 'Lieu', hint: 'Adresse ou lieu de rendez-vous', controller: _locationCtrl, icon: Icons.location_on_outlined),
+            // Autocomplete Lieu
+            _AddressAutocomplete(
+              onSelected: (lat, lng, name) {
+                _finalLat = lat;
+                _finalLng = lng;
+                _finalLocationName = name;
+              },
+            ),
             const SizedBox(height: AppSpacing.md),
             CustomFormField(label: 'Nombre max de participants', hint: 'Ex: 10', controller: _maxParticipantsCtrl, icon: Icons.group_outlined, keyboardType: TextInputType.number),
             const SizedBox(height: AppSpacing.md),
@@ -211,13 +247,150 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 }
 
-class _DatePickerField extends StatefulWidget {
+class _AddressAutocomplete extends StatefulWidget {
+  final Function(double lat, double lng, String name) onSelected;
+  const _AddressAutocomplete({required this.onSelected});
+
   @override
-  State<_DatePickerField> createState() => _DatePickerFieldState();
+  State<_AddressAutocomplete> createState() => _AddressAutocompleteState();
 }
 
-class _DatePickerFieldState extends State<_DatePickerField> {
-  DateTime? _date;
+class _AddressAutocompleteState extends State<_AddressAutocomplete> {
+  Timer? _debounce;
+  List<Map<String, dynamic>> _options = [];
+  bool _searching = false;
+
+  Future<void> _search(String query) async {
+    if (query.isEmpty) {
+      if (mounted) setState(() => _options = []);
+      return;
+    }
+    if (mounted) setState(() => _searching = true);
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(query)}&format=json&addressdetails=1&limit=5'),
+        headers: {'User-Agent': 'CreateGoodApp/1.0'},
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List;
+        if (mounted) {
+          setState(() {
+            _options = data.map((e) => e as Map<String, dynamic>).toList();
+          });
+        }
+      }
+    } catch (e) {
+      // Ignorant silent error
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Lieu (Saisie intelligente)', style: AppTextStyles.label),
+        const SizedBox(height: AppSpacing.sm),
+        Autocomplete<Map<String, dynamic>>(
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            if (_debounce?.isActive ?? false) _debounce!.cancel();
+            
+            // Trigger debounced search
+            _debounce = Timer(const Duration(milliseconds: 800), () {
+              _search(textEditingValue.text);
+            });
+            
+            // Autocomplete requires returning options synchronously or a Future.
+            // Since we're debouncing manually and updating state, we can return the current options.
+            // But Autocomplete optionsBuilder doesn't easily trigger rebuilds from external state.
+            // A better hack for Flutter Autocomplete with external debounced futures:
+            return _options;
+          },
+          displayStringForOption: (option) => option['display_name'] ?? 'Inconnu',
+          onSelected: (option) {
+            double lat = double.parse(option['lat'].toString());
+            double lng = double.parse(option['lon'].toString());
+            String name = option['display_name'] ?? 'Inconnu';
+            widget.onSelected(lat, lng, name);
+            FocusScope.of(context).unfocus(); // Close keyboard safely
+          },
+          fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+            return Container(
+              height: 58,
+              decoration: BoxDecoration(
+                color: AppColors.inputBg,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: AppColors.inputBorder),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: AppSpacing.md),
+                  Icon(Icons.location_on_outlined, color: AppColors.textSecondary, size: 20),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      onEditingComplete: onEditingComplete,
+                      style: AppTextStyles.body,
+                      decoration: InputDecoration(
+                        hintText: 'Ex: 15 rue de Rivoli...',
+                        hintStyle: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+                        border: InputBorder.none,
+                        isDense: true,
+                        suffixIcon: _searching ? const Padding(padding: EdgeInsets.all(14), child: CircularProgressIndicator(strokeWidth: 2)) : null,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4.0,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: 200, maxWidth: MediaQuery.of(context).size.width - AppSpacing.lg * 2),
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final option = options.elementAt(index);
+                      return ListTile(
+                        title: Text(option['display_name'] ?? 'Inconnu', style: AppTextStyles.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        leading: const Icon(Icons.place_outlined, color: AppColors.primary),
+                        onTap: () => onSelected(option),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+}
+
+class _DatePickerField extends StatelessWidget {
+  final DateTime? date;
+  final ValueChanged<DateTime> onChanged;
+
+  const _DatePickerField({required this.date, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -229,7 +402,7 @@ class _DatePickerFieldState extends State<_DatePickerField> {
         GestureDetector(
           onTap: () async {
             final d = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
-            if (d != null) setState(() => _date = d);
+            if (d != null) onChanged(d);
           },
           child: Container(
             height: 58,
@@ -245,8 +418,8 @@ class _DatePickerFieldState extends State<_DatePickerField> {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    _date != null ? '${_date!.day}/${_date!.month}/${_date!.year}' : 'Sélectionner',
-                    style: AppTextStyles.body.copyWith(color: _date != null ? AppColors.textDark : AppColors.textSecondary),
+                    date != null ? '${date!.day}/${date!.month}/${date!.year}' : 'Sélectionner',
+                    style: AppTextStyles.body.copyWith(color: date != null ? AppColors.textDark : AppColors.textSecondary),
                   ),
                 ),
               ],
@@ -258,13 +431,11 @@ class _DatePickerFieldState extends State<_DatePickerField> {
   }
 }
 
-class _TimePickerField extends StatefulWidget {
-  @override
-  State<_TimePickerField> createState() => _TimePickerFieldState();
-}
+class _TimePickerField extends StatelessWidget {
+  final TimeOfDay? time;
+  final ValueChanged<TimeOfDay> onChanged;
 
-class _TimePickerFieldState extends State<_TimePickerField> {
-  TimeOfDay? _time;
+  const _TimePickerField({required this.time, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +447,7 @@ class _TimePickerFieldState extends State<_TimePickerField> {
         GestureDetector(
           onTap: () async {
             final t = await showTimePicker(context: context, initialTime: TimeOfDay.now());
-            if (t != null) setState(() => _time = t);
+            if (t != null) onChanged(t);
           },
           child: Container(
             height: 58,
@@ -291,8 +462,8 @@ class _TimePickerFieldState extends State<_TimePickerField> {
                 const Icon(Icons.access_time_outlined, color: AppColors.textSecondary, size: 20),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  _time != null ? _time!.format(context) : 'Sélectionner',
-                  style: AppTextStyles.body.copyWith(color: _time != null ? AppColors.textDark : AppColors.textSecondary),
+                  time != null ? time!.format(context) : 'Sélectionner',
+                  style: AppTextStyles.body.copyWith(color: time != null ? AppColors.textDark : AppColors.textSecondary),
                 ),
               ],
             ),

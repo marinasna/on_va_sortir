@@ -1,0 +1,17 @@
+# PocketBase
+server/pb_data/
+server/pocketbase.exe
+
+# Flutter app
+app/.dart_tool/
+app/build/
+app/android/.gradle/
+app/android/local.properties
+app/ios/.symlinks/
+app/ios/Pods/
+
+# Also ignore root stuff just in case
+.dart_tool/
+build/
+.idea/
+*.iml

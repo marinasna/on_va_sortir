@@ -3,6 +3,7 @@ import 'package:create_good_app/app/core/db.dart';
 import 'package:create_good_app/app/services/message_service.dart';
 import 'package:create_good_app/app/services/notification_service.dart';
 import 'package:create_good_app/app/core/conversation_provider.dart';
+import 'package:create_good_app/app/core/event_provider.dart';
 import 'package:pocketbase/pocketbase.dart';
 class EventService {
   static Future<List<Event>> fetchEvents() async {
@@ -36,6 +37,7 @@ class EventService {
       final event = Event.fromRecord(record);
       await MessageService.joinEventConversation(event.id, event.title, event.emoji);
       ConversationProvider.instance.refresh();
+      EventProvider.instance.refresh();
     } catch (e) {
       print('Erreur lors de la création de l\'événement: $e');
       rethrow;
@@ -91,8 +93,9 @@ class EventService {
         );
       }
 
-      // Refresh conversations globally
+      // Refresh globally
       ConversationProvider.instance.refresh();
+      EventProvider.instance.refresh();
 
       return isJoining;
     } catch (e) {

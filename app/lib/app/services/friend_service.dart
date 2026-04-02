@@ -2,6 +2,7 @@ import 'package:create_good_app/app/models/friendship.dart';
 import 'package:create_good_app/app/core/db.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:create_good_app/app/services/notification_service.dart';
+import 'package:create_good_app/app/core/friend_provider.dart';
 
 class FriendService {
   // envoyer une demande d'ami
@@ -71,6 +72,9 @@ class FriendService {
         final updated = await pb.collection('users').getOne(pb.authStore.record!.id);
         pb.authStore.save(pb.authStore.token, updated);
       }
+
+      // Refresh friends provider
+      FriendProvider.instance.refresh();
     } catch (e) {
       print('Erreur mise à jour compteur amis: $e');
     }
@@ -101,6 +105,9 @@ class FriendService {
         final updated = await pb.collection('users').getOne(pb.authStore.record!.id);
         pb.authStore.save(pb.authStore.token, updated);
       }
+
+      // Refresh friends provider
+      FriendProvider.instance.refresh();
     } catch (e) {
       print('Erreur removeFriend: $e');
       rethrow;

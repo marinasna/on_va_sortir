@@ -4,7 +4,6 @@ import 'package:create_good_app/app/core/accessibility_provider.dart';
 import 'package:create_good_app/app/core/conversation_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:create_good_app/app/models/message.dart';
-import 'package:create_good_app/app/services/message_service.dart';
 import 'package:create_good_app/app/screens/chat_screen.dart';
 import 'package:create_good_app/app/screens/friends_screen.dart';
 

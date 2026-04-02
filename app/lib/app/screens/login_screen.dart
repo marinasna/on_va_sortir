@@ -51,16 +51,19 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background ellipse
+          // Background ellipse centrée
           Positioned(
-            top: -70,
-            left: -45,
-            child: Container(
-              width: 539,
-              height: 329,
-              decoration: BoxDecoration(
-                color: AppColors.orange.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(200),
+            top: -160,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                width: 500,
+                height: 320,
+                decoration: BoxDecoration(
+                  color: AppColors.orange.withOpacity(0.12),
+                  borderRadius: const BorderRadius.all(Radius.elliptical(250, 160)),
+                ),
               ),
             ),
           ),

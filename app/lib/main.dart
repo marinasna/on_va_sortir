@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:create_good_app/app/core/theme.dart';
 import 'package:create_good_app/app/core/accessibility_provider.dart';
 import 'package:create_good_app/app/core/conversation_provider.dart';
+import 'package:create_good_app/app/core/event_provider.dart';
+import 'package:create_good_app/app/core/friend_provider.dart';
 
 // Tes imports de screens
 import 'package:create_good_app/app/screens/launch_screen.dart';
@@ -23,6 +25,8 @@ void main() {
       providers: [
         ChangeNotifierProvider.value(value: AccessibilityProvider.instance),
         ChangeNotifierProvider.value(value: ConversationProvider.instance),
+        ChangeNotifierProvider.value(value: EventProvider.instance),
+        ChangeNotifierProvider.value(value: FriendProvider.instance),
       ],
       child: const OnVaSortirApp(),
     ),

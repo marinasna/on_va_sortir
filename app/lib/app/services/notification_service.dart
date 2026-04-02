@@ -1,6 +1,5 @@
 import 'package:create_good_app/app/models/notification.dart';
 import 'package:create_good_app/app/core/db.dart';
-import 'package:pocketbase/pocketbase.dart';
 
 class AppNotificationService {
   static Future<List<AppNotification>> fetchNotifications() async {

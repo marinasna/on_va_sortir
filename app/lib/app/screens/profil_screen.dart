@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:create_good_app/app/core/theme.dart';
 import 'package:create_good_app/app/models/event.dart';
-import 'package:create_good_app/app/services/event_service.dart';
 import 'package:create_good_app/app/services/auth_service.dart';
 import 'package:create_good_app/app/widgets/primary_button.dart';
 import 'package:create_good_app/app/screens/friends_screen.dart';
 import 'package:create_good_app/app/core/constants.dart';
 import 'package:create_good_app/app/core/accessibility_provider.dart';
+import 'package:create_good_app/app/core/event_provider.dart';
+import 'package:create_good_app/app/core/friend_provider.dart';
 import 'package:create_good_app/app/screens/event_detail_screen.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:create_good_app/app/core/db.dart';
@@ -23,35 +24,26 @@ class ProfilScreen extends StatefulWidget {
 }
 
 class _ProfilScreenState extends State<ProfilScreen> {
-  List<Event> _events = [];
-  bool _loading = true;
   late StreamSubscription<AuthStoreEvent> _authSub;
 
   @override
   void initState() {
     super.initState();
-    _fetchEvents();
+    // Refresh on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      EventProvider.instance.refresh();
+      FriendProvider.instance.refresh();
+      context.read<AccessibilityProvider>().loadPreferences();
+    });
+
     _authSub = pb.authStore.onChange.listen((event) {
       if (mounted) {
-        setState(() {});
-        _fetchEvents();
-      }
-    });
-
-    // Charger les réglages au démarrage
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        context.read<AccessibilityProvider>().loadPreferences();
+        setState(() {}); // For user info
+        EventProvider.instance.refresh();
       }
     });
   }
 
-  Future<void> _fetchEvents() async {
-    final e = await EventService.fetchEvents();
-    final curUserId = pb.authStore.record?.id;
-    final joined = e.where((evt) => evt.participants.contains(curUserId)).toList();
-    if (mounted) setState(() { _events = joined; _loading = false; });
-  }
 
   @override
   void dispose() {
@@ -61,12 +53,22 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Écouter les providers
+    context.watch<AccessibilityProvider>();
+    final eventProv = context.watch<EventProvider>();
+    final friendProv = context.watch<FriendProvider>();
+    
+    final curUserId = pb.authStore.record?.id;
+    final joinedEvents = eventProv.events.where((e) => e.participants.contains(curUserId)).toList();
+    final friendsCount = friendProv.friends.length;
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
             child: _ProfilHeader(
-              eventsCount: _events.length,
+              eventsCount: joinedEvents.length,
+              friendsCount: friendsCount,
             ),
           ),
           SliverToBoxAdapter(
@@ -105,8 +107,23 @@ class _ProfilScreenState extends State<ProfilScreen> {
               ),
             ),
           ),
-          if (_loading)
-            SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.orange))))
+          if (eventProv.loading && eventProv.events.isEmpty)
+            const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator())))
+          else if (joinedEvents.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xl),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.event_busy, size: 48, color: AppColors.textSecondary.withOpacity(0.5)),
+                      const SizedBox(height: AppSpacing.md),
+                      Text('Aucun événement rejoint', style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+              ),
+            )
           else
             SliverList(
               delegate: SliverChildBuilderDelegate(
@@ -115,12 +132,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   child: GestureDetector(
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => EventDetailScreen(event: _events[i])),
+                      MaterialPageRoute(builder: (_) => EventDetailScreen(event: joinedEvents[i])),
                     ),
-                    child: _EventTile(event: _events[i]),
+                    child: _EventTile(event: joinedEvents[i]),
                   ),
                 ),
-                childCount: _events.length,
+                childCount: joinedEvents.length,
               ),
             ),
           SliverToBoxAdapter(
@@ -209,8 +226,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
 class _ProfilHeader extends StatelessWidget {
   final int eventsCount;
+  final int friendsCount;
   
-  const _ProfilHeader({required this.eventsCount});
+  const _ProfilHeader({
+    required this.eventsCount,
+    required this.friendsCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -222,8 +243,8 @@ class _ProfilHeader extends StatelessWidget {
     final String age = user != null && user.getIntValue('age') > 0 ? '${user.getIntValue('age')} ans' : '';
     final String school = user != null && user.getStringValue('school').isNotEmpty ? user.getStringValue('school') : 'École non renseignée';
     final String location = user != null && user.getStringValue('location').isNotEmpty ? user.getStringValue('location') : 'Lieu non renseigné';
-    final String friendsCount = user != null ? user.getIntValue('friends_count').toString() : '0';
-    final String groupsCount = user != null ? user.getIntValue('groups_count').toString() : '0';
+    final String friendsCountStr = friendsCount.toString();
+    final String groupsCountStr = eventsCount.toString();
 
     return Stack(
       clipBehavior: Clip.none,
@@ -304,10 +325,10 @@ class _ProfilHeader extends StatelessWidget {
                     Container(width: 1, height: 40, color: AppColors.border),
                     GestureDetector(
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen())),
-                      child: _StatItem(value: friendsCount, label: 'Amis'),
+                      child: _StatItem(value: friendsCountStr, label: 'Amis'),
                     ),
                     Container(width: 1, height: 40, color: AppColors.border),
-                    _StatItem(value: groupsCount, label: 'Groupes'),
+                    _StatItem(value: groupsCountStr, label: 'Groupes'),
                   ],
                 ),
               ),

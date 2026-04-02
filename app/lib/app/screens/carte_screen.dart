@@ -11,6 +11,8 @@ import 'package:create_good_app/app/widgets/primary_button.dart';
 import 'package:create_good_app/app/core/db.dart';
 import 'package:create_good_app/app/screens/chat_screen.dart';
 import 'package:create_good_app/app/core/constants.dart';
+import 'package:create_good_app/app/core/event_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -27,13 +29,13 @@ class _CarteScreenState extends State<CarteScreen> {
   int _selectedCategoryIndex = 0;
   String _currentCity = 'Paris';
   final MapController _mapController = MapController();
-  List<Event> _events = [];
-  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadEvents();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      EventProvider.instance.refresh();
+    });
   }
 
   void _showEventDetails(Event event) {
@@ -43,20 +45,10 @@ class _CarteScreenState extends State<CarteScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => _EventDetailsSheet(
         event: event,
-        onParticipationChanged: _loadEvents,
       ),
     );
   }
 
-  Future<void> _loadEvents() async {
-    final events = await EventService.fetchEvents();
-    if (mounted) {
-      setState(() {
-        _events = events;
-        _loading = false;
-      });
-    }
-  }
 
   final List<Map<String, dynamic>> _filterCategories = [
     {'label': 'Tous', 'emoji': '✨'},
@@ -70,6 +62,9 @@ class _CarteScreenState extends State<CarteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final eventProv = context.watch<EventProvider>();
+    final allEvents = eventProv.events;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -80,7 +75,7 @@ class _CarteScreenState extends State<CarteScreen> {
             right: 0,
             child: _TopBar(
               currentCity: _currentCity,
-              events: _events,
+              events: allEvents,
               onEventSelected: (event) {
                 _mapController.move(LatLng(event.lat, event.lng), 14.0);
                 _showEventDetails(event);
@@ -111,12 +106,12 @@ class _CarteScreenState extends State<CarteScreen> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: _loading 
+            child: (eventProv.loading && allEvents.isEmpty)
                 ? Center(child: CircularProgressIndicator(color: AppColors.primary))
                 : _MapView(
                     mapController: _mapController, 
                     onEventTap: _showEventDetails,
-                    events: _events.where((e) {
+                    events: allEvents.where((e) {
                       final selected = _filterCategories[_selectedCategoryIndex]['label'];
                       if (selected == 'Tous') return true;
                       return e.category == selected;
@@ -128,9 +123,8 @@ class _CarteScreenState extends State<CarteScreen> {
             bottom: 24,
             right: 16,
             child: GestureDetector(
-              onTap: () async {
-                await Navigator.pushNamed(context, '/create-event');
-                _loadEvents();
+              onTap: () {
+                Navigator.pushNamed(context, '/create-event');
               },
               child: Container(
                 width: 64,
@@ -740,9 +734,8 @@ class _MapMarker extends StatelessWidget {
 
 class _EventDetailsSheet extends StatefulWidget {
   final Event event;
-  final VoidCallback onParticipationChanged;
 
-  const _EventDetailsSheet({required this.event, required this.onParticipationChanged});
+  const _EventDetailsSheet({required this.event});
 
   @override
   State<_EventDetailsSheet> createState() => _EventDetailsSheetState();
@@ -851,7 +844,6 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                 setState(() => _isLoading = true);
                 try {
                   await EventService.toggleEventParticipation(widget.event);
-                  widget.onParticipationChanged();
                   if (mounted) Navigator.pop(context);
                 } catch (e) {
                   if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));

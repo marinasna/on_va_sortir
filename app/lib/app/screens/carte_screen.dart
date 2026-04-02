@@ -7,6 +7,7 @@ import 'package:create_good_app/app/services/event_service.dart';
 import 'package:create_good_app/app/services/message_service.dart';
 import 'package:create_good_app/app/services/notification_service.dart';
 import 'package:create_good_app/app/services/auth_service.dart';
+import 'package:create_good_app/app/services/friend_service.dart';
 import 'package:create_good_app/app/widgets/primary_button.dart';
 import 'package:create_good_app/app/widgets/custom_form_field.dart';
 import 'package:create_good_app/app/core/db.dart';
@@ -217,35 +218,7 @@ class _TopBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Material(
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              clipBehavior: Clip.hardEdge,
-              child: InkWell(
-                onTap: () => _showNotificationsBottomsheet(context),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.notifications_outlined, color: AppColors.textDark, size: 24),
-                      Positioned(
-                        top: -4,
-                        right: -4,
-                        child: Container(
-                          width: 20,
-                          height: 20,
-                          decoration: const BoxDecoration(color: AppColors.orange, shape: BoxShape.circle),
-                          child: Center(
-                            child: Text('3', style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            _NotificationBell(onTap: () => _showNotificationsBottomsheet(context)),
           ],
         ),
       ),
@@ -298,30 +271,134 @@ class _TopBar extends StatelessWidget {
   void _showNotificationsBottomsheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Notifications', style: AppTextStyles.heading2),
-            const SizedBox(height: AppSpacing.md),
-            ListTile(
-              leading: const CircleAvatar(backgroundColor: AppColors.lightOrangeBg, child: Text('🍕')),
-              title: const Text('Nouvelle invitation'),
-              subtitle: const Text('Jean vous invite à "Soirée Pizza"'),
-              onTap: () => Navigator.pop(context),
+      builder: (_) => const _NotificationsSheet(),
+    );
+  }
+}
+
+class _NotificationsSheet extends StatefulWidget {
+  const _NotificationsSheet();
+
+  @override
+  State<_NotificationsSheet> createState() => _NotificationsSheetState();
+}
+
+class _NotificationsSheetState extends State<_NotificationsSheet> {
+  List<AppNotification> _notifs = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final list = await AppNotificationService.fetchNotifications();
+    if (mounted) setState(() { _notifs = list; _loading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Notifications', style: AppTextStyles.heading2),
+              if (_notifs.any((n) => !n.isRead))
+                TextButton(
+                  onPressed: () async {
+                    await AppNotificationService.markAllAsRead();
+                    _load();
+                  },
+                  child: const Text('Tout marquer comme lu', style: TextStyle(color: AppColors.primary)),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (_loading)
+            const Center(child: CircularProgressIndicator(color: AppColors.orange))
+          else if (_notifs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(32.0),
+              child: Center(child: Text('Aucune notification', style: TextStyle(color: AppColors.textSecondary))),
+            )
+          else
+            Expanded(
+              child: ListView.separated(
+                itemCount: _notifs.length,
+                separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
+                itemBuilder: (_, i) {
+                  final notif = _notifs[i];
+                  IconData icon = Icons.notifications;
+                  Color color = AppColors.orange;
+                  
+                  if (notif.type == NotifType.friendRequest) { icon = Icons.person_add; color = AppColors.primary; }
+                  else if (notif.type == NotifType.friendAccepted) { icon = Icons.people; color = AppColors.green; }
+                  
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(backgroundColor: color.withOpacity(0.15), child: Icon(icon, color: color, size: 20)),
+                    title: Text(notif.title, style: TextStyle(fontWeight: notif.isRead ? FontWeight.normal : FontWeight.bold)),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(notif.content, style: TextStyle(color: AppColors.textDark, fontWeight: notif.isRead ? FontWeight.normal : FontWeight.w500)),
+                        const SizedBox(height: 4),
+                        if (notif.type == NotifType.friendRequest && !notif.isRead) ...[
+                          Row(
+                            children: [
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(0, 30)),
+                                onPressed: () async {
+                                  if (notif.actionData != null) {
+                                    await FriendService.acceptFriendRequest(notif.actionData!);
+                                    _load();
+                                  }
+                                },
+                                child: const Text('Accepter', style: TextStyle(color: Colors.white, fontSize: 12)),
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton(
+                                onPressed: () async {
+                                  if (notif.actionData != null) {
+                                    await FriendService.rejectFriendRequest(notif.actionData!);
+                                    _load();
+                                  }
+                                },
+                                child: const Text('Refuser', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                        Text('${notif.created.day}/${notif.created.month} ${notif.created.hour}:${notif.created.minute.toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                      ],
+                    ),
+                    onTap: () async {
+                      if (!notif.isRead) await AppNotificationService.markAsRead(notif.id);
+                      if (notif.type == NotifType.friendAccepted && notif.senderId != null) {
+                        Navigator.pop(context);
+                        final conv = await MessageService.getOrCreatePrivateConversation(notif.senderId!, notif.senderRecord?.getStringValue('name') ?? 'Utilisateur');
+                        if (mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)));
+                      } else {
+                        _load();
+                      }
+                    },
+                  );
+                },
+              ),
             ),
-            ListTile(
-              leading: const CircleAvatar(backgroundColor: AppColors.lightOrangeBg, child: Text('🔥')),
-              title: const Text('2 nouveaux amis'),
-              subtitle: const Text('Alice et Bob ont accepté votre demande'),
-              onTap: () => Navigator.pop(context),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -634,6 +711,30 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
               ],
             ),
             const SizedBox(height: AppSpacing.xl),
+            if (isParticipating)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                    label: const Text('Discussion de groupe', style: TextStyle(fontFamily: AppTextStyles.fontFamily, fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                    ),
+                    onPressed: () async {
+                      final conv = await MessageService.joinEventConversation(widget.event.id, widget.event.title, widget.event.emoji);
+                      if (mounted) {
+                        Navigator.pop(context);
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)));
+                      }
+                    },
+                  ),
+                ),
+              ),
             PrimaryButton(
               label: isParticipating ? 'Me désinscrire' : 'M\'inscrire',
               loading: _isLoading,
@@ -650,6 +751,70 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationBell extends StatefulWidget {
+  final VoidCallback onTap;
+  const _NotificationBell({required this.onTap});
+
+  @override
+  State<_NotificationBell> createState() => _NotificationBellState();
+}
+
+class _NotificationBellState extends State<_NotificationBell> {
+  int _unreadCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCount();
+  }
+
+  Future<void> _loadCount() async {
+    final list = await AppNotificationService.fetchNotifications();
+    final count = list.where((n) => !n.isRead).length;
+    if (mounted && count != _unreadCount) {
+      setState(() => _unreadCount = count);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: () {
+          widget.onTap();
+          // Reload count when closing the bottom sheet
+          Future.delayed(const Duration(milliseconds: 500), _loadCount);
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.notifications_outlined, color: AppColors.textDark, size: 24),
+              if (_unreadCount > 0)
+                Positioned(
+                  top: -4,
+                  right: -4,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: const BoxDecoration(color: AppColors.orange, shape: BoxShape.circle),
+                    child: Center(
+                      child: Text('$_unreadCount', style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11)),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

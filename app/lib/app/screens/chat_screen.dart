@@ -1,31 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:create_good_app/app/core/theme.dart';
-import 'package:create_good_app/app/models/event.dart';
 import 'package:create_good_app/app/models/message.dart';
-import 'package:create_good_app/app/models/notification.dart';
-import 'package:create_good_app/app/services/event_service.dart';
 import 'package:create_good_app/app/services/message_service.dart';
-import 'package:create_good_app/app/services/notification_service.dart';
-import 'package:create_good_app/app/services/auth_service.dart';
-import 'package:create_good_app/app/widgets/primary_button.dart';
-import 'package:create_good_app/app/widgets/custom_form_field.dart';
-import 'package:create_good_app/app/screens/carte_screen.dart';
-import 'package:create_good_app/app/screens/chat_screen.dart';
-import 'package:create_good_app/app/screens/create_event_screen.dart';
-import 'package:create_good_app/app/screens/launch_screen.dart';
-import 'package:create_good_app/app/screens/login_screen.dart';
-import 'package:create_good_app/app/screens/main_screen.dart';
-import 'package:create_good_app/app/screens/message_list_screen.dart';
-import 'package:create_good_app/app/screens/parametres_screen.dart';
-import 'package:create_good_app/app/screens/profil_screen.dart';
-import 'package:create_good_app/app/screens/register_screen.dart';
-import 'dart:math' as math;
+import 'package:create_good_app/app/screens/public_profile_screen.dart';
 
 // CHAT SCREEN
 // ─────────────────────────────────────────────
 class ChatScreen extends StatefulWidget {
-  final Message message;
-  const ChatScreen({super.key, required this.message});
+  final Conversation conversation;
+  const ChatScreen({super.key, required this.conversation});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -33,13 +16,68 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _ctrl = TextEditingController();
-  final List<Map<String, dynamic>> _chatMessages = [
-    {'text': 'Salut ! Tu viens à la soirée jeux ce soir ?', 'mine': false, 'time': '14:20'},
-    {'text': "Hey ! Oui carrément, ça commence à quelle heure?", 'mine': true, 'time': '14:22'},
-    {'text': "Vers 19h chez moi, tu peux ramener quelque chose à boire ?", 'mine': false, 'time': '14:25'},
-    {'text': "Parfait ! Je ramène des softs et des chips", 'mine': true, 'time': '14:28'},
-    {'text': "Super ! On sera une dizaine je pense", 'mine': false, 'time': '14:30'},
-  ];
+  final _scrollCtrl = ScrollController();
+  List<ChatMessage> _messages = [];
+  bool _loading = true;
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadMessages() async {
+    final msgs = await MessageService.fetchMessages(widget.conversation.id);
+    if (mounted) {
+      setState(() { _messages = msgs; _loading = false; });
+      _scrollToBottom();
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.animateTo(
+          _scrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _send() async {
+    if (_ctrl.text.trim().isEmpty || _sending) return;
+    final text = _ctrl.text.trim();
+    _ctrl.clear();
+
+    setState(() => _sending = true);
+    try {
+      final msg = await MessageService.sendMessage(widget.conversation.id, text);
+      if (msg != null && mounted) {
+        setState(() {
+          _messages.add(msg);
+          _sending = false;
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _sending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,43 +92,79 @@ class _ChatScreenState extends State<ChatScreen> {
             Container(
               width: 40,
               height: 40,
-              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.15), shape: BoxShape.circle),
-              child: Center(child: Text(widget.message.name[0], style: const TextStyle(fontSize: 18, fontFamily: AppTextStyles.fontFamily))),
+              decoration: BoxDecoration(
+                color: widget.conversation.isGroup
+                    ? AppColors.orange.withOpacity(0.15)
+                    : AppColors.primary.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  widget.conversation.isGroup ? '👥' : widget.conversation.name.isNotEmpty ? widget.conversation.name[0].toUpperCase() : '?',
+                  style: const TextStyle(fontSize: 18, fontFamily: AppTextStyles.fontFamily),
+                ),
+              ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.message.name, style: AppTextStyles.heading3.copyWith(fontSize: 16)),
-                Text('En ligne', style: AppTextStyles.caption.copyWith(color: AppColors.green)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.conversation.name, style: AppTextStyles.heading3.copyWith(fontSize: 16), overflow: TextOverflow.ellipsis),
+                  Text(
+                    widget.conversation.isGroup
+                        ? '${widget.conversation.participantIds.length} participant(s)'
+                        : 'En ligne',
+                    style: AppTextStyles.caption.copyWith(color: AppColors.green),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () { setState(() => _loading = true); _loadMessages(); },
+          ),
         ],
       ),
       body: Column(
         children: [
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              itemCount: _chatMessages.length,
-              itemBuilder: (_, i) {
-                final msg = _chatMessages[i];
-                return _ChatBubble(text: msg['text'], mine: msg['mine'], time: msg['time']);
-              },
+          if (_loading)
+            const Expanded(child: Center(child: CircularProgressIndicator(color: AppColors.orange)))
+          else if (_messages.isEmpty)
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.chat_outlined, size: 48, color: AppColors.textSecondary.withOpacity(0.3)),
+                    const SizedBox(height: AppSpacing.md),
+                    Text('Écrivez le premier message !', style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollCtrl,
+                padding: const EdgeInsets.all(AppSpacing.md),
+                itemCount: _messages.length,
+                itemBuilder: (_, i) {
+                  final msg = _messages[i];
+                  return _ChatBubble(
+                    text: msg.content,
+                    mine: msg.isMine,
+                    time: '${msg.created.hour.toString().padLeft(2, '0')}:${msg.created.minute.toString().padLeft(2, '0')}',
+                    senderName: widget.conversation.isGroup && !msg.isMine ? msg.senderName : null,
+                    senderId: widget.conversation.isGroup && !msg.isMine ? msg.senderId : null,
+                  );
+                },
+              ),
             ),
-          ),
-          _ChatInput(controller: _ctrl, onSend: () {
-            if (_ctrl.text.isNotEmpty) {
-              setState(() {
-                _chatMessages.add({'text': _ctrl.text, 'mine': true, 'time': 'maintenant'});
-                _ctrl.clear();
-              });
-            }
-          }),
+          _ChatInput(controller: _ctrl, onSend: _send, sending: _sending),
         ],
       ),
     );
@@ -101,8 +175,10 @@ class _ChatBubble extends StatelessWidget {
   final String text;
   final bool mine;
   final String time;
+  final String? senderName;
+  final String? senderId;
 
-  const _ChatBubble({required this.text, required this.mine, required this.time});
+  const _ChatBubble({required this.text, required this.mine, required this.time, this.senderName, this.senderId});
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +190,16 @@ class _ChatBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
+            if (senderName != null && senderId != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2, left: 4),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => PublicProfileScreen(userId: senderId!)));
+                  },
+                  child: Text(senderName!, style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                ),
+              ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
               decoration: BoxDecoration(
@@ -142,8 +228,9 @@ class _ChatBubble extends StatelessWidget {
 class _ChatInput extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onSend;
+  final bool sending;
 
-  const _ChatInput({required this.controller, required this.onSend});
+  const _ChatInput({required this.controller, required this.onSend, this.sending = false});
 
   @override
   Widget build(BuildContext context) {
@@ -165,6 +252,7 @@ class _ChatInput extends StatelessWidget {
               ),
               child: TextField(
                 controller: controller,
+                onSubmitted: (_) => onSend(),
                 decoration: const InputDecoration(
                   hintText: 'Écrire un message...',
                   hintStyle: TextStyle(color: AppColors.textSecondary, fontFamily: AppTextStyles.fontFamily),
@@ -176,15 +264,17 @@ class _ChatInput extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.sm),
           GestureDetector(
-            onTap: onSend,
+            onTap: sending ? null : onSend,
             child: Container(
               width: 48,
               height: 48,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
+              decoration: BoxDecoration(
+                color: sending ? AppColors.textSecondary : AppColors.primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.send, color: Colors.white, size: 20),
+              child: sending
+                  ? const Padding(padding: EdgeInsets.all(14), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.send, color: Colors.white, size: 20),
             ),
           ),
         ],

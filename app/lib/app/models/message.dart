@@ -1,40 +1,58 @@
-import 'package:flutter/material.dart';
-import 'package:create_good_app/app/core/theme.dart';
-import 'package:create_good_app/app/models/event.dart';
-import 'package:create_good_app/app/models/message.dart';
-import 'package:create_good_app/app/models/notification.dart';
-import 'package:create_good_app/app/services/event_service.dart';
-import 'package:create_good_app/app/services/message_service.dart';
-import 'package:create_good_app/app/services/notification_service.dart';
-import 'package:create_good_app/app/services/auth_service.dart';
-import 'package:create_good_app/app/widgets/primary_button.dart';
-import 'package:create_good_app/app/widgets/custom_form_field.dart';
-import 'package:create_good_app/app/screens/carte_screen.dart';
-import 'package:create_good_app/app/screens/chat_screen.dart';
-import 'package:create_good_app/app/screens/create_event_screen.dart';
-import 'package:create_good_app/app/screens/launch_screen.dart';
-import 'package:create_good_app/app/screens/login_screen.dart';
-import 'package:create_good_app/app/screens/main_screen.dart';
-import 'package:create_good_app/app/screens/message_list_screen.dart';
-import 'package:create_good_app/app/screens/parametres_screen.dart';
-import 'package:create_good_app/app/screens/profil_screen.dart';
-import 'package:create_good_app/app/screens/register_screen.dart';
-import 'dart:math' as math;
+import 'package:pocketbase/pocketbase.dart';
 
-class Message {
+class Conversation {
   final String id;
+  final String type;
+  final String? eventId;
+  final List<String> participantIds;
   final String name;
   final String lastMessage;
-  final String time;
-  final int unread;
-  final bool isGroup;
+  final DateTime? lastMessageAt;
 
-  const Message({
+  const Conversation({
     required this.id,
+    required this.type,
+    this.eventId,
+    required this.participantIds,
     required this.name,
-    required this.lastMessage,
-    required this.time,
-    required this.unread,
-    this.isGroup = false,
+    this.lastMessage = '',
+    this.lastMessageAt,
   });
+
+  bool get isGroup => type == 'group';
+}
+
+class ChatMessage {
+  final String id;
+  final String conversationId;
+  final String senderId;
+  final String senderName;
+  final String content;
+  final DateTime created;
+  final bool isMine;
+
+  const ChatMessage({
+    required this.id,
+    required this.conversationId,
+    required this.senderId,
+    required this.senderName,
+    required this.content,
+    required this.created,
+    required this.isMine,
+  });
+
+  factory ChatMessage.fromRecord(RecordModel record, String currentUserId) {
+    final senderExpand = record.expand['sender'];
+    final senderRecord = (senderExpand != null && senderExpand.isNotEmpty) ? senderExpand.first : null;
+
+    return ChatMessage(
+      id: record.id,
+      conversationId: record.getStringValue('conversation'),
+      senderId: record.getStringValue('sender'),
+      senderName: senderRecord?.getStringValue('name') ?? 'Inconnu',
+      content: record.getStringValue('content'),
+      created: DateTime.tryParse(record.getStringValue('created')) ?? DateTime.now(),
+      isMine: record.getStringValue('sender') == currentUserId,
+    );
+  }
 }

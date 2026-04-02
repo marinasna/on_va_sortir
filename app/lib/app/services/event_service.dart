@@ -1,5 +1,7 @@
 import 'package:create_good_app/app/models/event.dart';
 import 'package:create_good_app/app/core/db.dart';
+import 'package:create_good_app/app/services/message_service.dart';
+import 'package:create_good_app/app/services/notification_service.dart';
 import 'package:pocketbase/pocketbase.dart';
 class EventService {
   static Future<List<Event>> fetchEvents() async {
@@ -25,6 +27,8 @@ class EventService {
 
   static Future<void> createEvent(Map<String, dynamic> data) async {
     try {
+      final userId = pb.authStore.record?.id;
+      if (userId != null) data['creator'] = userId;
       await pb.collection('events').create(body: data);
     } catch (e) {
       print('Erreur lors de la création de l\'événement: $e');
@@ -65,10 +69,39 @@ class EventService {
         pb.authStore.save(pb.authStore.token, updatedUser);
       }
 
+      // gérer la conv de groupe
+      await _handleEventConversation(event, isJoining);
+
+      // Notification au créateur si quelqu'un rejoint
+      if (isJoining && event.creatorId != null && event.creatorId != userId) {
+        final myName = pb.authStore.record?.getStringValue('name') ?? 'Un utilisateur';
+        await AppNotificationService.createNotification(
+          targetUserId: event.creatorId!,
+          senderId: userId,
+          type: 'event_joined',
+          title: 'Nouvelle participation',
+          content: '$myName participe à votre événement "${event.title}"',
+          actionData: event.id,
+        );
+      }
+
       return isJoining;
     } catch (e) {
       print('Erreur mise à jour participation: $e');
       rethrow;
+    }
+  }
+
+  // gérer la conversation de groupe liée à l'événement
+  static Future<void> _handleEventConversation(Event event, bool isJoining) async {
+    try {
+      if (isJoining) {
+        await MessageService.joinEventConversation(event.id, event.title, event.emoji);
+      } else {
+        await MessageService.leaveEventConversation(event.id);
+      }
+    } catch (e) {
+      print('Erreur gestion conversation événement: $e');
     }
   }
 }

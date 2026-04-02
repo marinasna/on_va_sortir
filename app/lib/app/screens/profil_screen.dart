@@ -20,6 +20,7 @@ import 'package:create_good_app/app/screens/message_list_screen.dart';
 import 'package:create_good_app/app/screens/parametres_screen.dart';
 import 'package:create_good_app/app/screens/profil_screen.dart';
 import 'package:create_good_app/app/screens/register_screen.dart';
+import 'package:create_good_app/app/screens/friends_screen.dart';
 import 'dart:math' as math;
 import 'package:pocketbase/pocketbase.dart';
 import 'package:create_good_app/app/core/db.dart';
@@ -44,7 +45,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
     super.initState();
     _fetchEvents();
     _authSub = pb.authStore.onChange.listen((event) {
-      if (mounted) _fetchEvents();
+      if (mounted) {
+        setState(() {});
+        _fetchEvents();
+      }
     });
   }
 
@@ -143,7 +147,7 @@ class _ProfilHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = pb.authStore.model is RecordModel ? pb.authStore.model as RecordModel : null;
+    final user = pb.authStore.record;
     final String name = user != null && user.getStringValue('name').isNotEmpty ? user.getStringValue('name') : 'Utilisateur';
     final String username = user != null && user.getStringValue('username').isNotEmpty ? '@${user.getStringValue('username')}' : '@user';
     final String age = user != null && user.getIntValue('age') > 0 ? '${user.getIntValue('age')} ans' : '';
@@ -244,7 +248,10 @@ class _ProfilHeader extends StatelessWidget {
                   children: [
                     _StatItem(value: eventsCount.toString(), label: 'Événements'),
                     Container(width: 1, height: 40, color: AppColors.border),
-                    _StatItem(value: friendsCount, label: 'Amis'),
+                    GestureDetector(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen())),
+                      child: _StatItem(value: friendsCount, label: 'Amis'),
+                    ),
                     Container(width: 1, height: 40, color: AppColors.border),
                     _StatItem(value: groupsCount, label: 'Groupes'),
                   ],

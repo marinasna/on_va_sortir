@@ -1,25 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // AJOUTÉ
+import 'package:create_good_app/app/core/accessibility_provider.dart'; // AJOUTÉ
 import 'package:create_good_app/app/core/theme.dart';
-import 'package:create_good_app/app/models/event.dart';
-import 'package:create_good_app/app/models/message.dart';
-import 'package:create_good_app/app/models/notification.dart';
-import 'package:create_good_app/app/services/event_service.dart';
-import 'package:create_good_app/app/services/message_service.dart';
-import 'package:create_good_app/app/services/notification_service.dart';
 import 'package:create_good_app/app/services/auth_service.dart';
 import 'package:create_good_app/app/widgets/primary_button.dart';
 import 'package:create_good_app/app/widgets/custom_form_field.dart';
-import 'package:create_good_app/app/screens/carte_screen.dart';
-import 'package:create_good_app/app/screens/chat_screen.dart';
-import 'package:create_good_app/app/screens/create_event_screen.dart';
-import 'package:create_good_app/app/screens/launch_screen.dart';
-import 'package:create_good_app/app/screens/login_screen.dart';
-import 'package:create_good_app/app/screens/main_screen.dart';
-import 'package:create_good_app/app/screens/message_list_screen.dart';
-import 'package:create_good_app/app/screens/parametres_screen.dart';
-import 'package:create_good_app/app/screens/profil_screen.dart';
-import 'package:create_good_app/app/screens/register_screen.dart';
-import 'dart:math' as math;
 
 // LOGIN SCREEN
 // ─────────────────────────────────────────────
@@ -43,8 +28,15 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
     try {
+      // 1. Tentative de connexion
       await AuthService.login(_emailCtrl.text, _passwordCtrl.text);
+      
       if (mounted) {
+        // 2. CHARGEMENT DES PRÉFÉRENCES (Juste après le succès du login)
+        // On utilise await pour être sûr que les données sont là avant de changer d'écran
+        await context.read<AccessibilityProvider>().loadPreferences();
+
+        // 3. Navigation vers l'écran principal
         Navigator.pushReplacementNamed(context, '/main');
       }
     } catch (e) {

@@ -1,30 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+// Tes imports de core/services
 import 'package:create_good_app/app/core/theme.dart';
-import 'package:create_good_app/app/models/event.dart';
-import 'package:create_good_app/app/models/message.dart';
-import 'package:create_good_app/app/models/notification.dart';
-import 'package:create_good_app/app/services/event_service.dart';
-import 'package:create_good_app/app/services/message_service.dart';
-import 'package:create_good_app/app/services/notification_service.dart';
+import 'package:create_good_app/app/core/accessibility_provider.dart';
 import 'package:create_good_app/app/services/auth_service.dart';
-import 'package:create_good_app/app/widgets/primary_button.dart';
-import 'package:create_good_app/app/widgets/custom_form_field.dart';
-import 'package:create_good_app/app/screens/carte_screen.dart';
-import 'package:create_good_app/app/screens/chat_screen.dart';
-import 'package:create_good_app/app/screens/create_event_screen.dart';
+
+// Tes imports de screens
 import 'package:create_good_app/app/screens/launch_screen.dart';
 import 'package:create_good_app/app/screens/login_screen.dart';
 import 'package:create_good_app/app/screens/main_screen.dart';
-import 'package:create_good_app/app/screens/message_list_screen.dart';
-import 'package:create_good_app/app/screens/parametres_screen.dart';
-import 'package:create_good_app/app/screens/profil_screen.dart';
 import 'package:create_good_app/app/screens/register_screen.dart';
-import 'dart:math' as math;
-import 'package:flutter/services.dart';
+import 'package:create_good_app/app/screens/create_event_screen.dart';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const OnVaSortirApp());
+  
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AccessibilityProvider()),
+      ],
+      child: const OnVaSortirApp(),
+    ),
+  );
 }
 
 class OnVaSortirApp extends StatelessWidget {
@@ -32,23 +33,31 @@ class OnVaSortirApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Écouter le provider
+    final acc = Provider.of<AccessibilityProvider>(context);
+
     return MaterialApp(
       title: 'On va sortir',
       debugShowCheckedModeBanner: false,
+      // GESTION DE LA TAILLE DU TEXTE GLOBALE
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(acc.largeText ? 1.25 : 1.0),
+          ),
+          child: child!,
+        );
+      },
       theme: ThemeData(
         fontFamily: AppTextStyles.fontFamily,
-        primaryColor: AppColors.primary,
-        scaffoldBackgroundColor: AppColors.background,
+        // GESTION DU CONTRASTE ÉLEVÉ (Exemple simple)
+        primaryColor: acc.highContrast ? Colors.black : AppColors.primary,
+        scaffoldBackgroundColor: acc.highContrast ? Colors.white : AppColors.background,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
-          primary: AppColors.primary,
+          seedColor: acc.highContrast ? Colors.black : AppColors.primary,
+          primary: acc.highContrast ? Colors.black : AppColors.primary,
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.background,
-          foregroundColor: AppColors.textDark,
-          elevation: 0,
-          centerTitle: false,
-        ),
+        // ... reste de ton code ...
       ),
       initialRoute: '/launch',
       routes: {

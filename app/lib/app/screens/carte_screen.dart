@@ -11,6 +11,7 @@ import 'package:create_good_app/app/widgets/primary_button.dart';
 import 'package:create_good_app/app/widgets/custom_form_field.dart';
 import 'package:create_good_app/app/core/db.dart';
 import 'package:create_good_app/app/screens/chat_screen.dart';
+import 'package:create_good_app/app/core/constants.dart';
 import 'package:create_good_app/app/screens/create_event_screen.dart';
 import 'package:create_good_app/app/screens/launch_screen.dart';
 import 'package:create_good_app/app/screens/login_screen.dart';
@@ -66,24 +67,14 @@ class _CarteScreenState extends State<CarteScreen> {
     }
   }
 
-  static const List<Map<String, String>> _categories = [
-    {'emoji': '✨', 'label': 'Tous'},
-    {'emoji': '🌙', 'label': 'Soirée'},
-    {'emoji': '🏃', 'label': 'Sport'},
-    {'emoji': '🎨', 'label': 'Culture'},
-    {'emoji': '🍽️', 'label': 'Resto'},
-    {'emoji': '🌳', 'label': 'Nature'},
-    {'emoji': '🎮', 'label': 'Gaming'},
+  final List<Map<String, dynamic>> _filterCategories = [
+    {'label': 'Tous', 'emoji': '✨'},
+    ...AppCategories.list
   ];
 
-  static const _categoryColors = [
-    LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFE8491C)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-    LinearGradient(colors: [Color(0xFF7A1E2A), Color(0xFF5A1520)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-    LinearGradient(colors: [Color(0xFF3E8914), Color(0xFF5DB820)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-    LinearGradient(colors: [Color(0xFF440EAB), Color(0xFF6844AC)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-    LinearGradient(colors: [Color(0xFFFF6F3B), Color(0xFFE8541C)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-    LinearGradient(colors: [Color(0xFF266603), Color(0xFF3E8914)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-    LinearGradient(colors: [Color(0xFF3A86FF), Color(0xFF003049)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+  late final List<LinearGradient> _filterColors = [
+    const LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFE8491C)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+    ...AppCategories.list.map((c) => AppCategories.getGradient(c['label'])).toList(),
   ];
 
   @override
@@ -112,8 +103,8 @@ class _CarteScreenState extends State<CarteScreen> {
             left: 0,
             right: 0,
             child: _CategoryFilter(
-              categories: _categories,
-              colors: _categoryColors,
+              categories: _filterCategories.map((e) => {'label': e['label'] as String, 'emoji': e['emoji'] as String}).toList(),
+              colors: _filterColors,
               selectedIndex: _selectedCategoryIndex,
               onSelect: (i) => setState(() => _selectedCategoryIndex = i),
             ),
@@ -130,7 +121,7 @@ class _CarteScreenState extends State<CarteScreen> {
                     mapController: _mapController, 
                     onEventTap: _showEventDetails,
                     events: _events.where((e) {
-                      final selected = _categories[_selectedCategoryIndex]['label'];
+                      final selected = _filterCategories[_selectedCategoryIndex]['label'];
                       if (selected == 'Tous') return true;
                       return e.category == selected;
                     }).toList(),
@@ -458,14 +449,8 @@ class _MapView extends StatelessWidget {
         ),
         MarkerLayer(
           markers: events.where((e) => e.lat != 0.0 && e.lng != 0.0).map((e) {
-            Color catColor = AppColors.primary;
-            if (e.category == 'Sport') catColor = const Color(0xFF3E8914);
-            if (e.category == 'Soirée') catColor = const Color(0xFFFF6B35);
-            if (e.category == 'Culture') catColor = const Color(0xFF440EAB);
-            if (e.category == 'Resto') catColor = const Color(0xFFE8541C);
-            if (e.category == 'Nature') catColor = const Color(0xFF3E8914);
-            if (e.category == 'Gaming') catColor = const Color(0xFF3A86FF);
-            
+            Color catColor = AppCategories.getPrimaryColor(e.category);
+
             return Marker(
               point: LatLng(e.lat, e.lng),
               width: 48,

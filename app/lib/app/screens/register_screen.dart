@@ -20,6 +20,7 @@ import 'package:create_good_app/app/screens/parametres_screen.dart';
 import 'package:create_good_app/app/screens/profil_screen.dart';
 import 'package:create_good_app/app/screens/register_screen.dart';
 import 'dart:math' as math;
+import 'package:create_good_app/app/core/constants.dart';
 
 // REGISTER SCREEN
 // ─────────────────────────────────────────────
@@ -41,6 +42,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading = false;
   bool _obscure = true;
   String? _errorMessage;
+  final List<String> _selectedInterests = [];
 
   Future<void> _register() async {
     setState(() {
@@ -56,6 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'gender': _gender,
         'location': _locationCtrl.text,
         'phone': _phoneCtrl.text,
+        'interests': _selectedInterests,
       });
       if (mounted) Navigator.pushReplacementNamed(context, '/main');
     } catch (e) {
@@ -148,7 +151,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: AppSpacing.md),
               CustomFormField(label: 'Localisation', hint: 'Paris, France', controller: _locationCtrl, icon: Icons.location_on_outlined),
               const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.md),
               CustomFormField(label: 'Numéro de téléphone', hint: '+33 6 12 34 56 78', controller: _phoneCtrl, icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
+              const SizedBox(height: AppSpacing.md),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Centres d\'intérêt', style: AppTextStyles.label),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: AppCategories.list.map((cat) {
+                      final label = cat['label'] as String;
+                      final emoji = cat['emoji'] as String;
+                      final isSelected = _selectedInterests.contains(label);
+                      return ChoiceChip(
+                        label: Text('$emoji $label'),
+                        selected: isSelected,
+                        selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                        backgroundColor: AppColors.inputBg,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedInterests.add(label);
+                            } else {
+                              _selectedInterests.remove(label);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
               const SizedBox(height: AppSpacing.xl),
               PrimaryButton(label: 'Créer mon profil', loading: _loading, onTap: _register),
               const SizedBox(height: AppSpacing.md),

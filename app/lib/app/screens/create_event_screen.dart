@@ -6,6 +6,7 @@ import 'package:create_good_app/app/core/theme.dart';
 import 'package:create_good_app/app/services/event_service.dart';
 import 'package:create_good_app/app/widgets/primary_button.dart';
 import 'package:create_good_app/app/widgets/custom_form_field.dart';
+import 'package:create_good_app/app/core/constants.dart';
 import 'package:create_good_app/app/core/db.dart';
 
 // CREATE EVENT SCREEN
@@ -29,20 +30,14 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   DateTime? _date;
   TimeOfDay? _time;
   
-  String _finalLocationName = '';
+  // Field not strictly required for backend payload yet but kept for logic
+  // String _finalLocationName = '';
   double _finalLat = 0.0;
   double _finalLng = 0.0;
 
   static const List<String> _emojiList = ['🎉', '🎮', '🏃', '⚽', '🎨', '🎭', '🎸', '🍕', '🍔', '☕', '🌳', '🏖️', '📚', '💪', '🎬', '🎵'];
 
-  static const List<Map<String, String>> _eventTypes = [
-    {'emoji': '🌙', 'label': 'Soirée'},
-    {'emoji': '🏃', 'label': 'Sport'},
-    {'emoji': '🎨', 'label': 'Culture'},
-    {'emoji': '🍽️', 'label': 'Resto'},
-    {'emoji': '🌳', 'label': 'Nature'},
-    {'emoji': '🎮', 'label': 'Gaming'},
-  ];
+  // Removed local _eventTypes
 
   Future<void> _submit() async {
     if (_nameCtrl.text.isEmpty || _finalLat == 0.0 || _finalLng == 0.0 || _date == null || _time == null) {
@@ -62,7 +57,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     ).toUtc().toIso8601String();
 
     try {
-      final category = _selectedCategory >= 0 ? _eventTypes[_selectedCategory]['label'] : 'Général';
+      final category = _selectedCategory >= 0 ? AppCategories.list[_selectedCategory]['label'] : 'Général';
       
       await EventService.createEvent({
         'emoji': _selectedEmoji,
@@ -155,9 +150,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 mainAxisSpacing: 8,
                 childAspectRatio: 2.4,
               ),
-              itemCount: _eventTypes.length,
+              itemCount: AppCategories.list.length,
               itemBuilder: (_, i) {
-                final t = _eventTypes[i];
+                final t = AppCategories.list[i];
                 final sel = _selectedCategory == i;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedCategory = i),
@@ -223,7 +218,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               onSelected: (lat, lng, name) {
                 _finalLat = lat;
                 _finalLng = lng;
-                _finalLocationName = name;
               },
             ),
             const SizedBox(height: AppSpacing.md),

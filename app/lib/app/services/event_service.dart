@@ -1,6 +1,6 @@
 import 'package:create_good_app/app/models/event.dart';
 import 'package:create_good_app/app/core/db.dart';
-
+import 'package:pocketbase/pocketbase.dart';
 class EventService {
   static Future<List<Event>> fetchEvents() async {
     try {
@@ -50,6 +50,21 @@ class EventService {
       await pb.collection('events').update(event.id, body: {
         'participants': participants,
       });
+
+      // Mettre à jour le compteur dans la table 'users'
+      final userRecord = pb.authStore.model as RecordModel?;
+      if (userRecord != null) {
+        final currentCount = userRecord.getIntValue('events_count');
+        final newCount = isJoining ? currentCount + 1 : (currentCount > 0 ? currentCount - 1 : 0);
+        
+        final updatedUser = await pb.collection('users').update(userRecord.id, body: {
+          'events_count': newCount
+        });
+        
+        // Sauvegarder localement pour que l'interface Profil se rafraîchisse naturellement
+        pb.authStore.save(pb.authStore.token, updatedUser);
+      }
+
       return isJoining;
     } catch (e) {
       print('Erreur mise à jour participation: $e');

@@ -10,6 +10,7 @@ import 'package:create_good_app/app/services/auth_service.dart';
 import 'package:create_good_app/app/widgets/primary_button.dart';
 import 'package:create_good_app/app/widgets/custom_form_field.dart';
 import 'package:create_good_app/app/screens/carte_screen.dart';
+import 'package:create_good_app/app/core/constants.dart';
 import 'package:create_good_app/app/screens/chat_screen.dart';
 import 'package:create_good_app/app/screens/create_event_screen.dart';
 import 'package:create_good_app/app/screens/launch_screen.dart';
@@ -22,6 +23,7 @@ import 'package:create_good_app/app/screens/register_screen.dart';
 import 'dart:math' as math;
 import 'package:pocketbase/pocketbase.dart';
 import 'package:create_good_app/app/core/db.dart';
+import 'dart:async';
 
 // PROFIL SCREEN
 // ─────────────────────────────────────────────
@@ -35,37 +37,42 @@ class ProfilScreen extends StatefulWidget {
 class _ProfilScreenState extends State<ProfilScreen> {
   List<Event> _events = [];
   bool _loading = true;
+  late StreamSubscription<AuthStoreEvent> _authSub;
 
   @override
   void initState() {
     super.initState();
-    EventService.fetchEvents().then((e) {
-      if (mounted) setState(() { _events = e; _loading = false; });
+    _fetchEvents();
+    _authSub = pb.authStore.onChange.listen((event) {
+      if (mounted) _fetchEvents();
     });
   }
 
-  static const List<Map<String, String>> _interests = [
-    {'emoji': '🎮', 'label': 'Gaming'},
-    {'emoji': '🏃', 'label': 'Sport'},
-    {'emoji': '🎨', 'label': 'Art'},
-    {'emoji': '📚', 'label': 'Lecture'},
-    {'emoji': '🎬', 'label': 'Cinéma'},
-    {'emoji': '🍕', 'label': 'Food'},
-  ];
+  Future<void> _fetchEvents() async {
+    final e = await EventService.fetchEvents();
+    if (mounted) setState(() { _events = e; _loading = false; });
+  }
 
-  static const List<Map<String, String>> _badges = [
-    {'emoji': '🏆', 'label': 'Top Host'},
-    {'emoji': '⭐', 'label': 'Rising Star'},
-    {'emoji': '💬', 'label': 'Social'},
-    {'emoji': '🧭', 'label': 'Explorer'},
-  ];
+  @override
+  void dispose() {
+    _authSub.cancel();
+    super.dispose();
+  }
+
+  // Static data removed
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: _ProfilHeader()),
+          SliverToBoxAdapter(
+            child: _ProfilHeader(
+              eventsCount: pb.authStore.record != null 
+                ? _events.where((e) => e.participants.contains(pb.authStore.record!.id)).length 
+                : 0,
+            ),
+          ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
@@ -74,17 +81,26 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 children: [
                   Text("Centres d'intérêt", style: AppTextStyles.heading2),
                   const SizedBox(height: AppSpacing.md),
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: _interests.map((i) => _InterestChip(emoji: i['emoji']!, label: i['label']!)).toList(),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text('Badges', style: AppTextStyles.heading2),
-                  const SizedBox(height: AppSpacing.md),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: _badges.map((b) => _BadgeItem(emoji: b['emoji']!, label: b['label']!)).toList(),
+                  Builder(
+                    builder: (context) {
+                      final user = pb.authStore.model is RecordModel ? pb.authStore.model as RecordModel : null;
+                      final userInterests = user?.getListValue<String>('interests') ?? [];
+                      if (userInterests.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text('Aucun centre d\'intérêt renseigné.', style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+                        );
+                      }
+                      return Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: userInterests.map((label) {
+                          final cat = AppCategories.getCategory(label);
+                          final emoji = cat?['emoji'] ?? '✨';
+                          return _InterestChip(emoji: emoji as String, label: label);
+                        }).toList(),
+                      );
+                    },
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text('Mes événements à venir', style: AppTextStyles.heading2),
@@ -121,6 +137,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
 }
 
 class _ProfilHeader extends StatelessWidget {
+  final int eventsCount;
+  
+  const _ProfilHeader({required this.eventsCount});
+
   @override
   Widget build(BuildContext context) {
     final user = pb.authStore.model is RecordModel ? pb.authStore.model as RecordModel : null;
@@ -129,7 +149,6 @@ class _ProfilHeader extends StatelessWidget {
     final String age = user != null && user.getIntValue('age') > 0 ? '${user.getIntValue('age')} ans' : '';
     final String school = user != null && user.getStringValue('school').isNotEmpty ? user.getStringValue('school') : 'École non renseignée';
     final String location = user != null && user.getStringValue('location').isNotEmpty ? user.getStringValue('location') : 'Lieu non renseigné';
-    final String eventsCount = user != null ? user.getIntValue('events_count').toString() : '0';
     final String friendsCount = user != null ? user.getIntValue('friends_count').toString() : '0';
     final String groupsCount = user != null ? user.getIntValue('groups_count').toString() : '0';
 
@@ -223,7 +242,7 @@ class _ProfilHeader extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _StatItem(value: eventsCount, label: 'Événements'),
+                    _StatItem(value: eventsCount.toString(), label: 'Événements'),
                     Container(width: 1, height: 40, color: AppColors.border),
                     _StatItem(value: friendsCount, label: 'Amis'),
                     Container(width: 1, height: 40, color: AppColors.border),
@@ -274,33 +293,7 @@ class _InterestChip extends StatelessWidget {
   }
 }
 
-class _BadgeItem extends StatelessWidget {
-  final String emoji;
-  final String label;
-  const _BadgeItem({required this.emoji, required this.label});
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 84,
-      child: Column(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: AppColors.lightOrangeBg,
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-            ),
-            child: Center(child: Text(emoji, style: const TextStyle(fontSize: 28))),
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: AppTextStyles.caption, textAlign: TextAlign.center),
-        ],
-      ),
-    );
-  }
-}
 
 class _EventTile extends StatelessWidget {
   final Event event;

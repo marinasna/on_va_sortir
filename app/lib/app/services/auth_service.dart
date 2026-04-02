@@ -55,14 +55,32 @@ class AuthService {
         "events_count": 0,
         "friends_count": 0,
         "groups_count": 0,
+        "interests": data['interests'] ?? [],
       };
       
       await pb.collection('users').create(body: body);
       await login(email, password);
     } on ClientException catch (e) {
-      throw Exception(e.response['message'] ?? 'Erreur lors de l\'inscription');
+      String errorMsg = e.response['message'] ?? 'Erreur lors de l\'inscription';
+      final data = e.response['data'];
+      if (data is Map<String, dynamic> && data.isNotEmpty) {
+        final List<String> fieldErrors = [];
+        data.forEach((field, errorData) {
+          if (errorData is Map<String, dynamic> && errorData['message'] != null) {
+            String fName = field;
+            if (field == 'password') fName = 'Mot de passe';
+            if (field == 'email') fName = 'Email';
+            if (field == 'name') fName = 'Nom';
+            fieldErrors.add('• $fName : ${errorData['message']}');
+          }
+        });
+        if (fieldErrors.isNotEmpty) {
+          errorMsg = 'Attention :\n${fieldErrors.join('\n')}';
+        }
+      }
+      throw Exception(errorMsg);
     } catch (e) {
-      throw Exception('Une erreur est survenue');
+      throw Exception('Une erreur inattendue est survenue: $e');
     }
   }
 

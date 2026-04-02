@@ -37,7 +37,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.orange)));
+    if (_loading) return Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.orange)));
     if (_error != null || _user == null) {
       return Scaffold(
         appBar: AppBar(),
@@ -62,7 +62,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         title: Text(name, style: AppTextStyles.heading3),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.textDark),
+        iconTheme: IconThemeData(color: AppColors.textDark),
       ),
       extendBodyBehindAppBar: true,
       body: SingleChildScrollView(
@@ -123,7 +123,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                         Row(
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.person_add_alt_1, color: AppColors.primary),
+                              icon: Icon(Icons.person_add_alt_1, color: AppColors.primary),
                               onPressed: () async {
                                 try {
                                   await FriendService.sendFriendRequest(widget.userId);
@@ -135,7 +135,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                               tooltip: 'Ajouter',
                             ),
                             IconButton(
-                              icon: const Icon(Icons.chat_bubble_outline, color: AppColors.orange),
+                              icon: Icon(Icons.chat_bubble_outline, color: AppColors.orange),
                               onPressed: () async {
                                 final conv = await MessageService.getOrCreatePrivateConversation(widget.userId, name);
                                 if (mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)));
@@ -149,11 +149,11 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   const SizedBox(height: AppSpacing.md),
                   Row(
                     children: [
-                      const Icon(Icons.school_outlined, size: 18, color: AppColors.textSecondary),
+                      Icon(Icons.school_outlined, size: 18, color: AppColors.textSecondary),
                       const SizedBox(width: 6),
                       Text(school, style: AppTextStyles.bodySmall),
                       const SizedBox(width: AppSpacing.md),
-                      const Icon(Icons.location_on_outlined, size: 18, color: AppColors.textSecondary),
+                      Icon(Icons.location_on_outlined, size: 18, color: AppColors.textSecondary),
                       const SizedBox(width: 6),
                       Text(location, style: AppTextStyles.bodySmall),
                     ],

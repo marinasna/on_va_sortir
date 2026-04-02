@@ -62,6 +62,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       await EventService.createEvent({
         'emoji': _selectedEmoji,
         'title': _nameCtrl.text,
+        'description': _descCtrl.text,
         'category': category,
         'date': finalDateTime,
         // The creator is implicitly participating.
@@ -112,7 +113,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       color: AppColors.lightOrangeBg,
                       borderRadius: BorderRadius.circular(AppRadius.lg),
                     ),
-                    child: Center(child: Text(_selectedEmoji, style: const TextStyle(fontSize: 64))),
+                    child: Center(child: Text(_selectedEmoji, style: TextStyle(fontSize: 64))),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Wrap(
@@ -184,10 +185,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   child: TextField(
                     controller: _descCtrl,
                     maxLines: 5,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Décris ton événement...',
                       hintStyle: TextStyle(color: AppColors.textSecondary, fontFamily: AppTextStyles.fontFamily),
-                      contentPadding: EdgeInsets.all(AppSpacing.md),
+                      contentPadding: const EdgeInsets.all(AppSpacing.md),
                       border: InputBorder.none,
                     ),
                   ),
@@ -359,7 +360,7 @@ class _AddressAutocompleteState extends State<_AddressAutocomplete> {
                       final option = options.elementAt(index);
                       return ListTile(
                         title: Text(option['display_name'] ?? 'Inconnu', style: AppTextStyles.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
-                        leading: const Icon(Icons.place_outlined, color: AppColors.primary),
+                        leading: Icon(Icons.place_outlined, color: AppColors.primary),
                         onTap: () => onSelected(option),
                       );
                     },
@@ -408,7 +409,7 @@ class _DatePickerField extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.calendar_today_outlined, color: AppColors.textSecondary, size: 20),
+                Icon(Icons.calendar_today_outlined, color: AppColors.textSecondary, size: 20),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
@@ -453,7 +454,7 @@ class _TimePickerField extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.access_time_outlined, color: AppColors.textSecondary, size: 20),
+                Icon(Icons.access_time_outlined, color: AppColors.textSecondary, size: 20),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
                   time != null ? time!.format(context) : 'Sélectionner',

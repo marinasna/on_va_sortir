@@ -132,7 +132,7 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           if (_loading)
-            const Expanded(child: Center(child: CircularProgressIndicator(color: AppColors.orange)))
+            Expanded(child: Center(child: CircularProgressIndicator(color: AppColors.orange)))
           else if (_messages.isEmpty)
             Expanded(
               child: Center(
@@ -236,7 +236,7 @@ class _ChatInput extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.background,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
@@ -253,11 +253,11 @@ class _ChatInput extends StatelessWidget {
               child: TextField(
                 controller: controller,
                 onSubmitted: (_) => onSend(),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Écrire un message...',
                   hintStyle: TextStyle(color: AppColors.textSecondary, fontFamily: AppTextStyles.fontFamily),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               ),
             ),

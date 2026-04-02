@@ -2,6 +2,7 @@ import 'package:create_good_app/app/models/event.dart';
 import 'package:create_good_app/app/core/db.dart';
 import 'package:create_good_app/app/services/message_service.dart';
 import 'package:create_good_app/app/services/notification_service.dart';
+import 'package:create_good_app/app/core/conversation_provider.dart';
 import 'package:pocketbase/pocketbase.dart';
 class EventService {
   static Future<List<Event>> fetchEvents() async {
@@ -29,7 +30,12 @@ class EventService {
     try {
       final userId = pb.authStore.record?.id;
       if (userId != null) data['creator'] = userId;
-      await pb.collection('events').create(body: data);
+      final record = await pb.collection('events').create(body: data);
+      
+      // Auto-join creator to conversation
+      final event = Event.fromRecord(record);
+      await MessageService.joinEventConversation(event.id, event.title, event.emoji);
+      ConversationProvider.instance.refresh();
     } catch (e) {
       print('Erreur lors de la création de l\'événement: $e');
       rethrow;
@@ -84,6 +90,9 @@ class EventService {
           actionData: event.id,
         );
       }
+
+      // Refresh conversations globally
+      ConversationProvider.instance.refresh();
 
       return isJoining;
     } catch (e) {

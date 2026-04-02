@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:create_good_app/app/core/theme.dart';
+import 'package:create_good_app/app/core/accessibility_provider.dart';
+import 'package:create_good_app/app/core/conversation_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:create_good_app/app/models/message.dart';
 import 'package:create_good_app/app/services/message_service.dart';
 import 'package:create_good_app/app/screens/chat_screen.dart';
@@ -15,16 +18,15 @@ class MessageListScreen extends StatefulWidget {
 }
 
 class _MessageListScreenState extends State<MessageListScreen> {
-  List<Conversation> _conversations = [];
-  List<Conversation> _filtered = [];
-  bool _loading = true;
   final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _load();
-    _searchCtrl.addListener(_applyFilter);
+    // Refresh on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ConversationProvider.instance.refresh();
+    });
   }
 
   @override
@@ -33,28 +35,24 @@ class _MessageListScreenState extends State<MessageListScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    final data = await MessageService.fetchConversations();
-    if (mounted) setState(() { _conversations = data; _filtered = data; _loading = false; });
-  }
-
-  void _applyFilter() {
+  List<Conversation> _getFiltered(List<Conversation> conversations) {
     final q = _searchCtrl.text.toLowerCase();
-    setState(() {
-      if (q.isEmpty) {
-        _filtered = _conversations;
-      } else {
-        _filtered = _conversations.where((c) =>
-          c.name.toLowerCase().contains(q) ||
-          c.lastMessage.toLowerCase().contains(q)
-        ).toList();
-      }
-    });
+    if (q.isEmpty) return conversations;
+    return conversations.where((c) =>
+      c.name.toLowerCase().contains(q) ||
+      c.lastMessage.toLowerCase().contains(q)
+    ).toList();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Écouter les providers
+    context.watch<AccessibilityProvider>();
+    final convProv = context.watch<ConversationProvider>();
+    final filtered = _getFiltered(convProv.conversations);
+
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,22 +61,21 @@ class _MessageListScreenState extends State<MessageListScreen> {
               padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
               child: Row(
                 children: [
-                  Text('Messages', style: AppTextStyles.heading1),
+                  Text('Messages', style: AppTextStyles.heading1.copyWith(color: AppColors.textDark)),
                   const Spacer(),
-                  // bouton pour ouvrir la liste d'amis / nouvelle conversation
                   GestureDetector(
                     onTap: () async {
                       await Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen()));
-                      _load(); // rafraîchir les conversations au retour
+                      convProv.refresh();
                     },
                     child: Container(
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: AppColors.orange.withOpacity(0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.person_add_alt_1, color: AppColors.primary, size: 20),
+                      child: Icon(Icons.person_add_alt_1, color: AppColors.orange, size: 20),
                     ),
                   ),
                 ],
@@ -87,22 +84,34 @@ class _MessageListScreenState extends State<MessageListScreen> {
             const SizedBox(height: AppSpacing.md),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: _SearchBar(controller: _searchCtrl),
+              child: ListenableBuilder(
+                listenable: _searchCtrl,
+                builder: (context, _) => _SearchBar(controller: _searchCtrl),
+              ),
             ),
             const SizedBox(height: AppSpacing.sm),
-            if (_loading)
-              const Expanded(child: Center(child: CircularProgressIndicator(color: AppColors.orange)))
-            else if (_filtered.isEmpty)
+            if (convProv.loading && convProv.conversations.isEmpty)
+              const Expanded(child: Center(child: CircularProgressIndicator()))
+            else if (filtered.isEmpty)
               Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                child: RefreshIndicator(
+                  onRefresh: () => convProv.refresh(),
+                  color: AppColors.orange,
+                  child: ListView(
                     children: [
-                      Icon(Icons.chat_bubble_outline, size: 64, color: AppColors.textSecondary.withOpacity(0.3)),
-                      const SizedBox(height: AppSpacing.md),
-                      Text('Aucune conversation', style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text('Rejoignez un événement ou ajoutez des amis !', style: AppTextStyles.bodySmall),
+                      SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.chat_bubble_outline, size: 64, color: AppColors.textSecondary.withOpacity(0.5)),
+                            const SizedBox(height: AppSpacing.md),
+                            Text('Aucune conversation', style: AppTextStyles.body.copyWith(color: AppColors.textDark, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text('Rejoignez un événement ou ajoutez des amis !', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -110,18 +119,18 @@ class _MessageListScreenState extends State<MessageListScreen> {
             else
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: _load,
+                  onRefresh: () => convProv.refresh(),
                   color: AppColors.orange,
                   child: ListView.separated(
-                    itemCount: _filtered.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => Divider(height: 1, color: AppColors.border),
                     itemBuilder: (_, i) => _ConversationTile(
-                      conversation: _filtered[i],
+                      conversation: filtered[i],
                       onTap: () async {
                         await Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => ChatScreen(conversation: _filtered[i]),
+                          builder: (_) => ChatScreen(conversation: filtered[i]),
                         ));
-                        _load();
+                        convProv.refresh();
                       },
                     ),
                   ),
@@ -150,12 +159,12 @@ class _SearchBar extends StatelessWidget {
       child: Row(
         children: [
           const SizedBox(width: AppSpacing.md),
-          const Icon(Icons.search, color: AppColors.textSecondary, size: 20),
+          Icon(Icons.search, color: AppColors.textSecondary, size: 20),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: TextField(
               controller: controller,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Rechercher',
                 hintStyle: TextStyle(color: AppColors.textSecondary, fontFamily: AppTextStyles.fontFamily, fontSize: 16),
                 border: InputBorder.none,

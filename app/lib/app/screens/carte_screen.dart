@@ -1,26 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:create_good_app/app/core/theme.dart';
 import 'package:create_good_app/app/models/event.dart';
-import 'package:create_good_app/app/models/message.dart';
+import 'package:create_good_app/app/screens/event_detail_screen.dart';
 import 'package:create_good_app/app/models/notification.dart';
 import 'package:create_good_app/app/services/event_service.dart';
 import 'package:create_good_app/app/services/message_service.dart';
 import 'package:create_good_app/app/services/notification_service.dart';
-import 'package:create_good_app/app/services/auth_service.dart';
 import 'package:create_good_app/app/services/friend_service.dart';
 import 'package:create_good_app/app/widgets/primary_button.dart';
-import 'package:create_good_app/app/widgets/custom_form_field.dart';
 import 'package:create_good_app/app/core/db.dart';
 import 'package:create_good_app/app/screens/chat_screen.dart';
 import 'package:create_good_app/app/core/constants.dart';
-import 'package:create_good_app/app/screens/create_event_screen.dart';
-import 'package:create_good_app/app/screens/launch_screen.dart';
-import 'package:create_good_app/app/screens/login_screen.dart';
-import 'package:create_good_app/app/screens/main_screen.dart';
-import 'package:create_good_app/app/screens/message_list_screen.dart';
-import 'package:create_good_app/app/screens/parametres_screen.dart';
-import 'package:create_good_app/app/screens/profil_screen.dart';
-import 'package:create_good_app/app/screens/register_screen.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -74,7 +64,7 @@ class _CarteScreenState extends State<CarteScreen> {
   ];
 
   late final List<LinearGradient> _filterColors = [
-    const LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFE8491C)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+    AppCategories.getGradient('Tous'),
     ...AppCategories.list.map((c) => AppCategories.getGradient(c['label'])).toList(),
   ];
 
@@ -90,11 +80,16 @@ class _CarteScreenState extends State<CarteScreen> {
             right: 0,
             child: _TopBar(
               currentCity: _currentCity,
+              events: _events,
+              onEventSelected: (event) {
+                _mapController.move(LatLng(event.lat, event.lng), 14.0);
+                _showEventDetails(event);
+              },
               onCityChanged: (city) {
                 setState(() => _currentCity = city);
-                if (city == 'Paris') _mapController.move(const LatLng(48.8566, 2.3522), 13.0);
-                if (city == 'Lyon') _mapController.move(const LatLng(45.7640, 4.8357), 13.0);
-                if (city == 'Marseille') _mapController.move(const LatLng(43.2965, 5.3698), 13.0);
+                if (city == 'Paris') _mapController.move(const LatLng(48.8566, 2.3522), 11.5);
+                if (city == 'Lyon') _mapController.move(const LatLng(45.7640, 4.8357), 11.5);
+                if (city == 'Marseille') _mapController.move(const LatLng(43.2965, 5.3698), 11.5);
               },
             ),
           ),
@@ -117,7 +112,7 @@ class _CarteScreenState extends State<CarteScreen> {
             left: 0,
             right: 0,
             child: _loading 
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                ? Center(child: CircularProgressIndicator(color: AppColors.primary))
                 : _MapView(
                     mapController: _mapController, 
                     onEventTap: _showEventDetails,
@@ -140,18 +135,14 @@ class _CarteScreenState extends State<CarteScreen> {
               child: Container(
                 width: 64,
                 height: 64,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFFF6B35), Color(0xFFE8491C)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
                   shape: BoxShape.circle,
                   boxShadow: [
-                    BoxShadow(color: Color(0x40000000), blurRadius: 20, offset: Offset(0, 8)),
+                    BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 8)),
                   ],
                 ),
-                child: const Icon(Icons.add, color: Colors.white, size: 32),
+                child: Icon(Icons.add, color: AppColors.onPrimary, size: 32),
               ),
             ),
           ),
@@ -163,9 +154,16 @@ class _CarteScreenState extends State<CarteScreen> {
 
 class _TopBar extends StatelessWidget {
   final String currentCity;
+  final List<Event> events;
   final ValueChanged<String> onCityChanged;
+  final ValueChanged<Event> onEventSelected;
 
-  const _TopBar({required this.currentCity, required this.onCityChanged});
+  const _TopBar({
+    required this.currentCity, 
+    required this.events,
+    required this.onCityChanged,
+    required this.onEventSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +173,7 @@ class _TopBar extends StatelessWidget {
       child: Container(
         height: 64,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.background,
           border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
         ),
@@ -193,7 +191,7 @@ class _TopBar extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.location_on, color: AppColors.orange, size: 20),
+                      Icon(Icons.location_on, color: AppColors.orange, size: 20),
                       const SizedBox(width: 4),
                       Text(currentCity, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.textDark)),
                       const SizedBox(width: 4),
@@ -209,11 +207,17 @@ class _TopBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadius.full),
               child: InkWell(
                 borderRadius: BorderRadius.circular(AppRadius.full),
-                onTap: () => showSearch(context: context, delegate: _DummySearchDelegate()),
+                onTap: () => showSearch(
+                  context: context, 
+                  delegate: _EventSearchDelegate(
+                    events: events,
+                    onEventSelected: onEventSelected,
+                  ),
+                ),
                 child: Container(
                   width: 40,
                   height: 40,
-                  child: const Icon(Icons.search, color: AppColors.textSecondary, size: 22),
+                  child: Icon(Icons.search, color: AppColors.textDark, size: 22),
                 ),
               ),
             ),
@@ -239,7 +243,7 @@ class _TopBar extends StatelessWidget {
             Text('Choisir une ville', style: AppTextStyles.heading2),
             const SizedBox(height: AppSpacing.md),
             ListTile(
-              leading: const Icon(Icons.location_city, color: AppColors.primary),
+              leading: Icon(Icons.location_city, color: AppColors.primary),
               title: const Text('Paris'),
               onTap: () {
                 onCityChanged('Paris');
@@ -320,23 +324,23 @@ class _NotificationsSheetState extends State<_NotificationsSheet> {
                     await AppNotificationService.markAllAsRead();
                     _load();
                   },
-                  child: const Text('Tout marquer comme lu', style: TextStyle(color: AppColors.primary)),
+                  child: Text('Tout marquer comme lu', style: TextStyle(color: AppColors.primary)),
                 ),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
           if (_loading)
-            const Center(child: CircularProgressIndicator(color: AppColors.orange))
+            Center(child: CircularProgressIndicator(color: AppColors.orange))
           else if (_notifs.isEmpty)
             const Padding(
               padding: EdgeInsets.all(32.0),
-              child: Center(child: Text('Aucune notification', style: TextStyle(color: AppColors.textSecondary))),
+              child: Center(child: Text('Aucune notification', style: TextStyle(color: Colors.grey))),
             )
           else
             Expanded(
               child: ListView.separated(
                 itemCount: _notifs.length,
-                separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
+                separatorBuilder: (_, __) => Divider(height: 1, indent: 72, color: AppColors.border),
                 itemBuilder: (_, i) {
                   final notif = _notifs[i];
                   IconData icon = Icons.notifications;
@@ -375,13 +379,13 @@ class _NotificationsSheetState extends State<_NotificationsSheet> {
                                     _load();
                                   }
                                 },
-                                child: const Text('Refuser', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                                child: Text('Refuser', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                               ),
                             ],
                           ),
                           const SizedBox(height: 4),
                         ],
-                        Text('${notif.created.day}/${notif.created.month} ${notif.created.hour}:${notif.created.minute.toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                        Text('${notif.created.day}/${notif.created.month} ${notif.created.hour}:${notif.created.minute.toString().padLeft(2, '0')}', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
                       ],
                     ),
                     onTap: () async {
@@ -404,31 +408,119 @@ class _NotificationsSheetState extends State<_NotificationsSheet> {
   }
 }
 
-class _DummySearchDelegate extends SearchDelegate {
+class _EventSearchDelegate extends SearchDelegate {
+  final List<Event> events;
+  final ValueChanged<Event> onEventSelected;
+
+  _EventSearchDelegate({required this.events, required this.onEventSelected});
+
+  @override
+  String get searchFieldLabel => 'Rechercher un événement ou catégorie...';
+
   @override
   List<Widget>? buildActions(BuildContext context) {
     return [
-      IconButton(icon: const Icon(Icons.clear), onPressed: () => query = '')
+      if (query.isNotEmpty)
+        IconButton(icon: const Icon(Icons.clear), onPressed: () => query = '')
     ];
   }
 
   @override
   Widget? buildLeading(BuildContext context) {
-    return IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => close(context, null));
+    return IconButton(
+      icon: const Icon(Icons.arrow_back), 
+      onPressed: () => close(context, null)
+    );
+  }
+
+  List<Event> _getFilteredEvents() {
+    if (query.length < 2) return [];
+    return events.where((e) {
+      final q = query.toLowerCase();
+      return e.title.toLowerCase().contains(q) || 
+             e.category.toLowerCase().contains(q) ||
+             e.description.toLowerCase().contains(q);
+    }).toList();
   }
 
   @override
   Widget buildResults(BuildContext context) {
-    return Center(child: Text("Résultats de recherche pour '$query'"));
+    if (query.length < 2) {
+      return const Center(child: Text('Tapez au moins 2 lettres pour rechercher'));
+    }
+    final filtered = _getFilteredEvents();
+
+    if (filtered.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('🔍', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 16),
+            Text('Aucun résultat pour "$query"', style: AppTextStyles.heading2),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      itemCount: filtered.length,
+      itemBuilder: (context, i) {
+        final event = filtered[i];
+        return _buildEventTile(context, event);
+      },
+    );
   }
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    return ListView(
-      children: const [
-        ListTile(leading: Icon(Icons.search), title: Text("Rechercher des soirées étudiantes...")),
-        ListTile(leading: Icon(Icons.search), title: Text("Rechercher des musées à visiter...")),
-      ],
+    if (query.isEmpty) {
+      return ListView(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text('Suggestions', style: AppTextStyles.captionBold),
+          ),
+          ...AppCategories.list.take(3).map((cat) => ListTile(
+            leading: Text(cat['emoji']!, style: const TextStyle(fontSize: 20)),
+            title: Text(cat['label']!),
+            onTap: () => query = cat['label']!,
+          )),
+        ],
+      );
+    }
+
+    if (query.length < 2) {
+      return const SizedBox.shrink();
+    }
+
+    final filtered = _getFilteredEvents();
+    return ListView.builder(
+      itemCount: filtered.length,
+      itemBuilder: (context, i) {
+        final event = filtered[i];
+        return _buildEventTile(context, event);
+      },
+    );
+  }
+
+  Widget _buildEventTile(BuildContext context, Event event) {
+    return ListTile(
+      leading: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(
+          color: AppColors.lightOrangeBg,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(child: Text(event.emoji, style: const TextStyle(fontSize: 20))),
+      ),
+      title: Text(event.title, style: AppTextStyles.label),
+      subtitle: Text(event.category, style: AppTextStyles.caption.copyWith(color: AppColors.primary)),
+      onTap: () {
+        close(context, null);
+        Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)));
+      },
     );
   }
 }
@@ -517,7 +609,10 @@ class _MapView extends StatelessWidget {
       mapController: mapController,
       options: MapOptions(
         initialCenter: const LatLng(48.8566, 2.3522), // Paris
-        initialZoom: 13.0,
+        initialZoom: 11.5,
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+        ),
       ),
       children: [
         TileLayer(
@@ -683,29 +778,43 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(widget.event.title, style: AppTextStyles.heading2, maxLines: 2, overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 4),
-                      Text(widget.event.category, style: AppTextStyles.bodySmall.copyWith(color: AppColors.primary)),
-                    ],
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailScreen(event: widget.event))),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: Text(widget.event.title, style: AppTextStyles.heading2, maxLines: 2, overflow: TextOverflow.ellipsis)),
+                            Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(widget.event.category, style: AppTextStyles.bodySmall.copyWith(color: AppColors.primary)),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
+            if (widget.event.description.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Text('Description', style: AppTextStyles.label),
+              const SizedBox(height: AppSpacing.xs),
+              Text(widget.event.description, style: AppTextStyles.bodySmall.copyWith(color: AppColors.textDark)),
+            ],
             const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
-                const Icon(Icons.access_time_outlined, color: AppColors.textSecondary, size: 20),
+                Icon(Icons.access_time_outlined, color: AppColors.textSecondary, size: 20),
                 const SizedBox(width: AppSpacing.sm),
-                Text('${widget.event.date.day.toString().padLeft(2,'0')}/${widget.event.date.month.toString().padLeft(2,'0')}/${widget.event.date.year} à ${widget.event.date.hour.toString().padLeft(2,'0')}h${widget.event.date.minute.toString().padLeft(2, '0')}', style: AppTextStyles.body),
+                Text('${widget.event.date.day.toString().padLeft(2, '0')}/${widget.event.date.month.toString().padLeft(2, '0')}/${widget.event.date.year} à ${widget.event.date.hour.toString().padLeft(2, '0')}h${widget.event.date.minute.toString().padLeft(2, '0')}', style: AppTextStyles.body),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
             Row(
               children: [
-                const Icon(Icons.group_outlined, color: AppColors.textSecondary, size: 20),
+                Icon(Icons.group_outlined, color: AppColors.textSecondary, size: 20),
                 const SizedBox(width: AppSpacing.sm),
                 Text('${widget.event.participants.length} Participant(s)', style: AppTextStyles.body),
               ],
@@ -718,11 +827,11 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                   width: double.infinity,
                   height: 48,
                   child: OutlinedButton.icon(
-                    icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                    icon: Icon(Icons.chat_bubble_outline, size: 20),
                     label: const Text('Discussion de groupe', style: TextStyle(fontFamily: AppTextStyles.fontFamily, fontWeight: FontWeight.w600)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
+                      side: BorderSide(color: AppColors.primary),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
                     ),
                     onPressed: () async {
@@ -799,7 +908,7 @@ class _NotificationBellState extends State<_NotificationBell> {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              const Icon(Icons.notifications_outlined, color: AppColors.textDark, size: 24),
+              Icon(Icons.notifications_outlined, color: AppColors.textDark, size: 24),
               if (_unreadCount > 0)
                 Positioned(
                   top: -4,
@@ -807,7 +916,7 @@ class _NotificationBellState extends State<_NotificationBell> {
                   child: Container(
                     width: 20,
                     height: 20,
-                    decoration: const BoxDecoration(color: AppColors.orange, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: AppColors.orange, shape: BoxShape.circle),
                     child: Center(
                       child: Text('$_unreadCount', style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11)),
                     ),

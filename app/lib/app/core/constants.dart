@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:create_good_app/app/core/accessibility_provider.dart';
 
 class AppCategories {
   static const List<Map<String, dynamic>> list = [
@@ -19,6 +20,10 @@ class AppCategories {
   }
 
   static LinearGradient getGradient(String label) {
+    if (AccessibilityProvider.instance.highContrast) {
+      final color = AccessibilityProvider.instance.darkMode ? Colors.white : Colors.black;
+      return LinearGradient(colors: [color, color]);
+    }
     final cat = getCategory(label);
     if (cat != null) {
       final colors = cat['color'] as List<Color>;
@@ -28,6 +33,9 @@ class AppCategories {
   }
 
   static Color getPrimaryColor(String label) {
+    if (AccessibilityProvider.instance.highContrast) {
+      return AccessibilityProvider.instance.darkMode ? Colors.white : Colors.black;
+    }
     final cat = getCategory(label);
     if (cat != null) {
       return (cat['color'] as List<Color>).first;

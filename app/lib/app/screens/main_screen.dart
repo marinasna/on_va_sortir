@@ -1,25 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:create_good_app/app/core/theme.dart';
-import 'package:create_good_app/app/models/event.dart';
-import 'package:create_good_app/app/models/message.dart';
-import 'package:create_good_app/app/models/notification.dart';
-import 'package:create_good_app/app/services/event_service.dart';
-import 'package:create_good_app/app/services/message_service.dart';
-import 'package:create_good_app/app/services/notification_service.dart';
-import 'package:create_good_app/app/services/auth_service.dart';
-import 'package:create_good_app/app/widgets/primary_button.dart';
-import 'package:create_good_app/app/widgets/custom_form_field.dart';
+import 'package:create_good_app/app/core/accessibility_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:create_good_app/app/screens/carte_screen.dart';
-import 'package:create_good_app/app/screens/chat_screen.dart';
-import 'package:create_good_app/app/screens/create_event_screen.dart';
-import 'package:create_good_app/app/screens/launch_screen.dart';
-import 'package:create_good_app/app/screens/login_screen.dart';
-import 'package:create_good_app/app/screens/main_screen.dart';
 import 'package:create_good_app/app/screens/message_list_screen.dart';
-import 'package:create_good_app/app/screens/parametres_screen.dart';
 import 'package:create_good_app/app/screens/profil_screen.dart';
-import 'package:create_good_app/app/screens/register_screen.dart';
-import 'dart:math' as math;
 
 // MAIN SCREEN (Bottom Nav)
 // ─────────────────────────────────────────────
@@ -33,14 +18,17 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    CarteScreen(),
-    MessageListScreen(),
-    ProfilScreen(),
+  final List<Widget> _screens = [
+    const CarteScreen(),
+    const MessageListScreen(),
+    const ProfilScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
+    // Écouter le provider pour la réactivité globale du MainScreen
+    context.watch<AccessibilityProvider>();
+
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: _BottomNavBar(
@@ -62,8 +50,9 @@ class _BottomNavBar extends StatelessWidget {
     return Container(
       height: 69,
       decoration: BoxDecoration(
-        color: AppColors.background,
-        border: const Border(top: BorderSide(color: AppColors.border, width: 1)),
+        color: AppColors.lightOrangeBg,
+        shape: BoxShape.rectangle,
+        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15, offset: const Offset(0, -4)),
         ],
@@ -111,12 +100,12 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(active ? activeIcon : icon, color: active ? AppColors.orange : AppColors.textSecondary, size: 24),
+            Icon(active ? activeIcon : icon, color: active ? AppColors.orange : (AccessibilityProvider.instance.darkMode ? Colors.white54 : AppColors.textSecondary), size: 24),
             const SizedBox(height: 4),
             Text(
               label,
               style: AppTextStyles.captionBold.copyWith(
-                color: active ? AppColors.orange : AppColors.textSecondary,
+                color: active ? AppColors.orange : (AccessibilityProvider.instance.darkMode ? Colors.white54 : AppColors.textSecondary),
                 fontWeight: active ? FontWeight.w700 : FontWeight.w500,
               ),
             ),

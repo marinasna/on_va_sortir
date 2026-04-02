@@ -2,12 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:create_good_app/app/core/db.dart'; // Import de ton instance pb
 
 class AccessibilityProvider with ChangeNotifier {
+  static final AccessibilityProvider _instance = AccessibilityProvider._internal();
+
+  factory AccessibilityProvider() {
+    return _instance;
+  }
+
+  AccessibilityProvider._internal();
+
+  static AccessibilityProvider get instance => _instance;
+
   bool _highContrast = false;
+  bool _darkMode = false;
   bool _largeText = false;
   bool _reduceMotion = false;
   bool _screenReader = false;
 
   bool get highContrast => _highContrast;
+  bool get darkMode => _darkMode;
   bool get largeText => _largeText;
   bool get reduceMotion => _reduceMotion;
   bool get screenReader => _screenReader;
@@ -18,6 +30,7 @@ class AccessibilityProvider with ChangeNotifier {
     if (authModel != null) {
       final data = authModel.toJson();
       _highContrast = data['high_contrast'] ?? false;
+      _darkMode = data['dark_mode'] ?? false;
       _largeText = data['large_text'] ?? false;
       _reduceMotion = data['reduced_animations'] ?? false;
       _screenReader = data['screen_reader_opt'] ?? false;
@@ -30,6 +43,12 @@ class AccessibilityProvider with ChangeNotifier {
     _highContrast = value;
     notifyListeners();
     await _saveToPB('high_contrast', value);
+  }
+
+  Future<void> updateDarkMode(bool value) async {
+    _darkMode = value;
+    notifyListeners();
+    await _saveToPB('dark_mode', value);
   }
 
   Future<void> updateLargeText(bool value) async {
@@ -63,6 +82,7 @@ class AccessibilityProvider with ChangeNotifier {
 
   void reset() {
     _highContrast = false;
+    _darkMode = false;
     _largeText = false;
     _reduceMotion = false;
     _screenReader = false;

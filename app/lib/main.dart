@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 // Tes imports de core/services
 import 'package:create_good_app/app/core/theme.dart';
 import 'package:create_good_app/app/core/accessibility_provider.dart';
-import 'package:create_good_app/app/services/auth_service.dart';
+import 'package:create_good_app/app/core/conversation_provider.dart';
 
 // Tes imports de screens
 import 'package:create_good_app/app/screens/launch_screen.dart';
@@ -21,7 +21,8 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AccessibilityProvider()),
+        ChangeNotifierProvider.value(value: AccessibilityProvider.instance),
+        ChangeNotifierProvider.value(value: ConversationProvider.instance),
       ],
       child: const OnVaSortirApp(),
     ),
@@ -49,15 +50,17 @@ class OnVaSortirApp extends StatelessWidget {
         );
       },
       theme: ThemeData(
+        brightness: acc.darkMode ? Brightness.dark : Brightness.light,
         fontFamily: AppTextStyles.fontFamily,
-        // GESTION DU CONTRASTE ÉLEVÉ (Exemple simple)
-        primaryColor: acc.highContrast ? Colors.black : AppColors.primary,
-        scaffoldBackgroundColor: acc.highContrast ? Colors.white : AppColors.background,
+        primaryColor: AppColors.primary,
+        scaffoldBackgroundColor: AppColors.background,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: acc.highContrast ? Colors.black : AppColors.primary,
-          primary: acc.highContrast ? Colors.black : AppColors.primary,
+          brightness: acc.darkMode ? Brightness.dark : Brightness.light,
+          seedColor: AppColors.primary,
+          primary: AppColors.primary,
+          surface: AppColors.background,
         ),
-        // ... reste de ton code ...
+        dividerColor: AppColors.border,
       ),
       initialRoute: '/launch',
       routes: {

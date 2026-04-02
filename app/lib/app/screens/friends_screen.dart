@@ -64,7 +64,7 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
         children: [
           // Onglet 1 : mes amis
           _loading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.orange))
+              ? Center(child: CircularProgressIndicator(color: AppColors.orange))
               : _friends.isEmpty
                   ? Center(
                       child: Column(
@@ -106,7 +106,7 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
 
           // Onglet 2 : demandes reçues
           _loading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.orange))
+              ? Center(child: CircularProgressIndicator(color: AppColors.orange))
               : _pending.isEmpty
                   ? Center(
                       child: Column(
@@ -181,12 +181,12 @@ class _FriendTile extends StatelessWidget {
           const SizedBox(width: AppSpacing.md),
           Expanded(child: Text(name, style: AppTextStyles.heading3)),
           IconButton(
-            icon: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
+            icon: Icon(Icons.chat_bubble_outline, color: AppColors.primary),
             onPressed: onMessage,
             tooltip: 'Envoyer un message',
           ),
           IconButton(
-            icon: const Icon(Icons.person_remove, color: AppColors.textSecondary, size: 20),
+            icon: Icon(Icons.person_remove, color: AppColors.textSecondary, size: 20),
             onPressed: () {
               showDialog(
                 context: context,
@@ -246,11 +246,11 @@ class _PendingTile extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.check_circle, color: AppColors.green, size: 32),
+            icon: Icon(Icons.check_circle, color: AppColors.green, size: 32),
             onPressed: onAccept,
           ),
           IconButton(
-            icon: const Icon(Icons.cancel, color: AppColors.textSecondary, size: 32),
+            icon: Icon(Icons.cancel, color: AppColors.textSecondary, size: 32),
             onPressed: onReject,
           ),
         ],
@@ -306,11 +306,11 @@ class _SearchUsersTabState extends State<_SearchUsersTab> {
                   child: TextField(
                     controller: _searchCtrl,
                     onSubmitted: (_) => _search(),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Nom ou pseudo...',
                       hintStyle: TextStyle(color: AppColors.textSecondary, fontFamily: AppTextStyles.fontFamily),
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     ),
                   ),
                 ),
@@ -321,7 +321,7 @@ class _SearchUsersTabState extends State<_SearchUsersTab> {
                 child: Container(
                   width: 44,
                   height: 44,
-                  decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
                   child: const Icon(Icons.search, color: Colors.white, size: 22),
                 ),
               ),
@@ -329,7 +329,7 @@ class _SearchUsersTabState extends State<_SearchUsersTab> {
           ),
           const SizedBox(height: AppSpacing.md),
           if (_searching)
-            const Expanded(child: Center(child: CircularProgressIndicator(color: AppColors.orange)))
+            Expanded(child: Center(child: CircularProgressIndicator(color: AppColors.orange)))
           else if (_results.isEmpty)
             Expanded(
               child: Center(
@@ -382,7 +382,7 @@ class _SearchUsersTabState extends State<_SearchUsersTab> {
                               color: AppColors.inputBg,
                               borderRadius: BorderRadius.circular(AppRadius.full),
                             ),
-                            child: const Text('Envoyée ✓', style: TextStyle(color: AppColors.textSecondary, fontFamily: AppTextStyles.fontFamily, fontSize: 13)),
+                            child: Text('Envoyée ✓', style: TextStyle(color: AppColors.textSecondary, fontFamily: AppTextStyles.fontFamily, fontSize: 13)),
                           )
                         else
                           GestureDetector(

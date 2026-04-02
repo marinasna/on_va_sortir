@@ -1,27 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:create_good_app/app/core/theme.dart';
 import 'package:create_good_app/app/models/event.dart';
-import 'package:create_good_app/app/models/message.dart';
-import 'package:create_good_app/app/models/notification.dart';
 import 'package:create_good_app/app/services/event_service.dart';
-import 'package:create_good_app/app/services/message_service.dart';
-import 'package:create_good_app/app/services/notification_service.dart';
 import 'package:create_good_app/app/services/auth_service.dart';
 import 'package:create_good_app/app/widgets/primary_button.dart';
-import 'package:create_good_app/app/widgets/custom_form_field.dart';
-import 'package:create_good_app/app/screens/carte_screen.dart';
-import 'package:create_good_app/app/core/constants.dart';
-import 'package:create_good_app/app/screens/chat_screen.dart';
-import 'package:create_good_app/app/screens/create_event_screen.dart';
-import 'package:create_good_app/app/screens/launch_screen.dart';
-import 'package:create_good_app/app/screens/login_screen.dart';
-import 'package:create_good_app/app/screens/main_screen.dart';
-import 'package:create_good_app/app/screens/message_list_screen.dart';
-import 'package:create_good_app/app/screens/parametres_screen.dart';
-import 'package:create_good_app/app/screens/profil_screen.dart';
-import 'package:create_good_app/app/screens/register_screen.dart';
 import 'package:create_good_app/app/screens/friends_screen.dart';
-import 'dart:math' as math;
+import 'package:create_good_app/app/core/constants.dart';
+import 'package:create_good_app/app/core/accessibility_provider.dart';
+import 'package:create_good_app/app/screens/event_detail_screen.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:create_good_app/app/core/db.dart';
 import 'dart:async';
@@ -50,11 +37,20 @@ class _ProfilScreenState extends State<ProfilScreen> {
         _fetchEvents();
       }
     });
+
+    // Charger les réglages au démarrage
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<AccessibilityProvider>().loadPreferences();
+      }
+    });
   }
 
   Future<void> _fetchEvents() async {
     final e = await EventService.fetchEvents();
-    if (mounted) setState(() { _events = e; _loading = false; });
+    final curUserId = pb.authStore.record?.id;
+    final joined = e.where((evt) => evt.participants.contains(curUserId)).toList();
+    if (mounted) setState(() { _events = joined; _loading = false; });
   }
 
   @override
@@ -63,8 +59,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
     super.dispose();
   }
 
-  // Static data removed
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -72,9 +66,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
         slivers: [
           SliverToBoxAdapter(
             child: _ProfilHeader(
-              eventsCount: pb.authStore.record != null 
-                ? _events.where((e) => e.participants.contains(pb.authStore.record!.id)).length 
-                : 0,
+              eventsCount: _events.length,
             ),
           ),
           SliverToBoxAdapter(
@@ -114,23 +106,98 @@ class _ProfilScreenState extends State<ProfilScreen> {
             ),
           ),
           if (_loading)
-            const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.orange))))
+            SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.orange))))
           else
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (_, i) => Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                  child: _EventTile(event: _events[i]),
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => EventDetailScreen(event: _events[i])),
+                    ),
+                    child: _EventTile(event: _events[i]),
+                  ),
                 ),
                 childCount: _events.length,
               ),
             ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: PrimaryButton(
                 label: '+ Créer un nouvel événement',
                 onTap: () => Navigator.pushNamed(context, '/create-event'),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Accessibilité', style: AppTextStyles.heading2),
+                  const SizedBox(height: AppSpacing.md),
+                  Consumer<AccessibilityProvider>(
+                    builder: (context, acc, child) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          children: [
+                            _AccessibilityToggle(
+                              icon: Icons.text_fields,
+                              title: 'Texte agrandi',
+                              subtitle: 'Police plus grande',
+                              value: acc.largeText,
+                              onChanged: (v) => acc.updateLargeText(v),
+                            ),
+                            const Divider(height: 1, indent: 56),
+                            _AccessibilityToggle(
+                              icon: Icons.contrast,
+                              title: 'Contraste élevé',
+                              subtitle: 'Couleurs simplifiées',
+                              value: acc.highContrast,
+                              onChanged: (v) => acc.updateHighContrast(v),
+                            ),
+                            const Divider(height: 1, indent: 56),
+                            _AccessibilityToggle(
+                              icon: Icons.dark_mode,
+                              title: 'Mode sombre',
+                              subtitle: 'Interface foncée',
+                              value: acc.darkMode,
+                              onChanged: (v) => acc.updateDarkMode(v),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  SizedBox(height: AppSpacing.xl),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () {
+                        context.read<AccessibilityProvider>().reset();
+                        AuthService.logout();
+                        Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+                      },
+                      icon: Icon(Icons.logout, color: AppColors.primary),
+                      label: Text(
+                        'Se déconnecter',
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                ],
               ),
             ),
           ),
@@ -147,6 +214,8 @@ class _ProfilHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Écouter le provider pour la réactivité du thème
+    context.watch<AccessibilityProvider>();
     final user = pb.authStore.record;
     final String name = user != null && user.getStringValue('name').isNotEmpty ? user.getStringValue('name') : 'Utilisateur';
     final String username = user != null && user.getStringValue('username').isNotEmpty ? '@${user.getStringValue('username')}' : '@user';
@@ -169,22 +238,7 @@ class _ProfilHeader extends StatelessWidget {
             ),
           ),
         ),
-        Positioned(
-          top: AppSpacing.md,
-          right: AppSpacing.md,
-          child: SafeArea(
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 20),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ParametresScreen())),
-              ),
-            ),
-          ),
-        ),
+        // Icône paramètres supprimée
         Positioned(
           top: 100,
           left: 38,
@@ -194,10 +248,10 @@ class _ProfilHeader extends StatelessWidget {
               Container(
                 width: 112,
                 height: 112,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE0C8A8),
+                decoration: BoxDecoration(
+                  color: AppColors.lightOrangeBg,
                   shape: BoxShape.circle,
-                  border: Border.fromBorderSide(BorderSide(color: Colors.white, width: 3)),
+                  border: Border.all(color: AppColors.border, width: 3),
                 ),
                 child: const Center(child: Text('👤', style: TextStyle(fontSize: 48))),
               ),
@@ -207,8 +261,8 @@ class _ProfilHeader extends StatelessWidget {
                 child: Container(
                   width: 36,
                   height: 36,
-                  decoration: const BoxDecoration(color: AppColors.orange, shape: BoxShape.circle),
-                  child: const Icon(Icons.edit, color: Colors.white, size: 18),
+                  decoration: BoxDecoration(color: AppColors.orange, shape: BoxShape.circle),
+                  child: Icon(Icons.edit, color: Colors.white, size: 18),
                 ),
               ),
             ],
@@ -227,11 +281,11 @@ class _ProfilHeader extends StatelessWidget {
               const SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
-                  const Icon(Icons.school_outlined, size: 18, color: AppColors.textSecondary),
+                  Icon(Icons.school_outlined, size: 18, color: AppColors.textSecondary),
                   const SizedBox(width: 6),
                   Text(school, style: AppTextStyles.bodySmall),
                   const SizedBox(width: AppSpacing.md),
-                  const Icon(Icons.location_on_outlined, size: 18, color: AppColors.textSecondary),
+                  Icon(Icons.location_on_outlined, size: 18, color: AppColors.textSecondary),
                   const SizedBox(width: 6),
                   Text(location, style: AppTextStyles.bodySmall),
                 ],
@@ -300,8 +354,6 @@ class _InterestChip extends StatelessWidget {
   }
 }
 
-
-
 class _EventTile extends StatelessWidget {
   final Event event;
   const _EventTile({required this.event});
@@ -336,7 +388,7 @@ class _EventTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textSecondary),
+                    Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textSecondary),
                     const SizedBox(width: 4),
                     Text('${event.date.day.toString().padLeft(2, "0")}/${event.date.month.toString().padLeft(2, "0")}/${event.date.year}', style: AppTextStyles.caption),
                     const SizedBox(width: 8),
@@ -346,13 +398,61 @@ class _EventTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.group_outlined, size: 14, color: AppColors.textSecondary),
+                    Icon(Icons.group_outlined, size: 14, color: AppColors.textSecondary),
                     const SizedBox(width: 4),
                     Text('${event.participants.length} participants', style: AppTextStyles.caption),
                   ],
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccessibilityToggle extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _AccessibilityToggle({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: AppColors.inputBg, borderRadius: BorderRadius.circular(AppRadius.sm)),
+            child: Icon(icon, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTextStyles.body),
+                Text(subtitle, style: AppTextStyles.caption),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: AppColors.primary,
           ),
         ],
       ),

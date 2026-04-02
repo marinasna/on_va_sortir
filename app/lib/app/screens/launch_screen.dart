@@ -1,25 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:create_good_app/app/core/theme.dart';
-import 'package:create_good_app/app/models/event.dart';
-import 'package:create_good_app/app/models/message.dart';
-import 'package:create_good_app/app/models/notification.dart';
-import 'package:create_good_app/app/services/event_service.dart';
-import 'package:create_good_app/app/services/message_service.dart';
-import 'package:create_good_app/app/services/notification_service.dart';
-import 'package:create_good_app/app/services/auth_service.dart';
 import 'package:create_good_app/app/widgets/primary_button.dart';
-import 'package:create_good_app/app/widgets/custom_form_field.dart';
-import 'package:create_good_app/app/screens/carte_screen.dart';
-import 'package:create_good_app/app/screens/chat_screen.dart';
-import 'package:create_good_app/app/screens/create_event_screen.dart';
-import 'package:create_good_app/app/screens/launch_screen.dart';
-import 'package:create_good_app/app/screens/login_screen.dart';
-import 'package:create_good_app/app/screens/main_screen.dart';
-import 'package:create_good_app/app/screens/message_list_screen.dart';
-import 'package:create_good_app/app/screens/parametres_screen.dart';
-import 'package:create_good_app/app/screens/profil_screen.dart';
-import 'package:create_good_app/app/screens/register_screen.dart';
-import 'dart:math' as math;
 
 // ─────────────────────────────────────────────
 class LaunchScreen extends StatelessWidget {
@@ -70,14 +51,11 @@ class LaunchScreen extends StatelessWidget {
                           color: AppColors.background.withOpacity(0.6),
                           borderRadius: BorderRadius.circular(AppRadius.xl),
                         ),
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _AppLogoIcon(size: 64, emoji: '📍'),
-                              const SizedBox(width: 12),
-                              _AppLogoIcon(size: 64, emoji: '🎉'),
-                            ],
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(AppRadius.xl),
+                          child: Image.asset(
+                            'lib/app/img/accueil-jeune-paris.jpg',
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
@@ -128,13 +106,3 @@ class _DecorativeCircle extends StatelessWidget {
   }
 }
 
-class _AppLogoIcon extends StatelessWidget {
-  final double size;
-  final String emoji;
-  const _AppLogoIcon({required this.size, required this.emoji});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(emoji, style: TextStyle(fontSize: size * 0.6));
-  }
-}

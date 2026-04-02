@@ -7,6 +7,7 @@ class Event {
   final DateTime date;
   final List<String> participants;
   final String category;
+  final String description;
   final String? creatorId;
   final double lat;
   final double lng;
@@ -18,6 +19,7 @@ class Event {
     required this.date,
     required this.participants,
     required this.category,
+    required this.description,
     this.creatorId,
     required this.lat,
     required this.lng,
@@ -31,6 +33,7 @@ class Event {
       date: DateTime.tryParse(record.getStringValue('date')) ?? DateTime.now(),
       participants: record.getListValue<String>('participants'),
       category: record.getStringValue('category'),
+      description: record.getStringValue('description'),
       creatorId: record.getStringValue('creator'),
       lat: record.getDoubleValue('lat'),
       lng: record.getDoubleValue('lng'),
